@@ -1,11 +1,17 @@
 # pg_lightool
 
 #### 项目介绍
-作者将自己diy的pg的周边工具，融合到本项目中
+作者将自己diy的pg轻量级周边工具，融合到本项目中
 目前有：
 1. blockrecover：依托wal日志完成闭库下的坏块修复
+      当前市面上pg的恢复工具（PRTI、pg_rman）都需要一个基础备份。备份原理就是以基础备份为base，通过重演wal日志使数据库达到一个用户满意的状态。如果没有基础备份，那么数据库一旦有页损坏，那么这个页的数据会恢复困难。blockrecover工具不需要一个基础备份，只需要扫描wal日志就可以完成坏块的恢复。
 2. walshow：逐行显示wal日志的信息（正在开发中）
-
+      wal日志是pg重要的日志。数据库DBA难以通过工具查询出wal记录的内容。
+      1. logical decoding工具只能在线解析wal日志而且需要预先配置
+      2. pg_xlogdump工具解析结果难以阅读
+      3. xlogminer工具操作复杂（https://github.com/HighgoSoftware/XLogMiner）
+      现在考虑依托当前的系统表文件，对每一条wal日志进行解析
+1. 这里是列表文本
 #### 安装教程
 
 1. 配置postgres安装bin目录的PATH环境变量
