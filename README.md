@@ -3,8 +3,8 @@
 #### 项目介绍
 作者将自己diy的pg的周边工具，融合到本项目中
 目前有：
-1.blockrecover：依托wal日志完成闭库下的坏块修复
-2.walshow：逐行显示wal日志的信息（正在开发中）
+1. blockrecover：依托wal日志完成闭库下的坏块修复
+2. walshow：逐行显示wal日志的信息（正在开发中）
 
 #### 安装教程
 
