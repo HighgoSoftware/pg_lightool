@@ -11,7 +11,7 @@
       2. pg_xlogdump工具解析结果难以阅读
       3. xlogminer工具操作复杂（https://github.com/HighgoSoftware/XLogMiner）
       现在考虑依托当前的系统表文件，对每一条wal日志进行解析
-1. 这里是列表文本
+
 #### 安装教程
 
 1. 配置postgres安装bin目录的PATH环境变量
