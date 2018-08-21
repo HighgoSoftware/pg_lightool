@@ -307,11 +307,11 @@ replacePages(void)
 	int		loop = 0;
 	char	filePath[MAXPGPATH] = {0};
 
-	for(; loop < RECOVER_BLOCK_MAX; loop++)
+	for(; loop < brc.rbNum; loop++)
 	{
 		uint32		blknoIneveryFile = 0;
 		uint32		relFileNum = 0;
-		if(brc.pageArray[loop] && 0 != brc.recoverBlock[loop])
+		if(brc.pageArray[loop])
 		{
 			memset(filePath, 0, MAXPGPATH);
 			relFileNum = MAG_BLOCK_FILENO(brc.recoverBlock[loop]);
@@ -356,7 +356,7 @@ do_blockrecover(void)
 		br_elog("LOG:datafile is %u/%u/%u", brc.rfn.dbNode, brc.rfn.relNode, brc.rfn.spcNode);
 		br_elog("LOG:walpath is %s", brc.walpath);
 		br_elog("Recover blocks is");
-		for(; loop < RECOVER_BLOCK_MAX && 0 != brc.recoverBlock[loop]; loop++)
+		for(; loop < brc.rbNum; loop++)
 			printf("%u ", brc.recoverBlock[loop]);
 		printf("\n");
 	}
@@ -368,10 +368,10 @@ do_blockrecover(void)
 	mentalRecord();
 	if(brc.debugout)
 	{
-		for(loop = 0; loop < RECOVER_BLOCK_MAX; loop++)
+		for(loop = 0; loop < brc.rbNum; loop++)
 		{
 			if(brc.pageArray[loop])
-			printf("%d ", brc.recoverBlock[loop]);
+				printf("%d ", brc.recoverBlock[loop]);
 		}
 		printf("\n");
 	}

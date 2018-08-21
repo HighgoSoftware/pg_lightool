@@ -1871,7 +1871,7 @@ getTargetPage(int *tarIndex, bool *findInArray,BlockNumber blknum)
 	
 	for(loop = 0; loop < brc.rbNum; loop++)
 	{	
-		if(brc.recoverBlock[loop] - 1 == blknum)
+		if(brc.recoverBlock[loop] == blknum)
 		{
 			targetPage = brc.pageArray[loop];
 			*findInArray = true;
