@@ -233,7 +233,7 @@ replaceFileBlock(char* filePath, uint32 blknoIneveryFile, Page page)
 
 	br_elog("    BlockRecover:file->%s,page:%u",filePath,blknoIneveryFile);
 	fseek(fp, 0, SEEK_SET);
-	fseek(fp, (blknoIneveryFile - 1) * BLCKSZ, SEEK_CUR);
+	fseek(fp, blknoIneveryFile * BLCKSZ, SEEK_CUR);
 	fwrite(page, BLCKSZ, 1, fp);
 	 
 
