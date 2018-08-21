@@ -13,6 +13,8 @@
 3. make install
 
 #### 使用说明
+
+```
 pg_lightool is a light tool of postgres
 
 Usage:
@@ -26,15 +28,17 @@ Common Options:
   -b, --block=n1[,n2,n3]                specify blocks to repair
   -w, --walpath=walpath                 wallog read from
   -D, --pgdata=datapath                 data dir of database
-  -i, --immediate			            does not do a backup for old file
+  -i, --immediate                       does not do a backup for old file
+```
+
 
 
 #### 使用限制
 blockrecover
-1.当前只能解析同一个时间线的xlog
-2.当前只能完成table数据的块恢复
-3.此为个人兴趣项目，没有经过完整的测试，入参请谨慎。
-4.项目是在pg10.4上做的开发，没有对其他环境做测试
+1. 当前只能解析同一个时间线的xlog
+2. 当前只能完成table数据的块恢复
+3. 此为个人兴趣项目，没有经过完整的测试，入参请谨慎。
+4. 项目是在pg10.4上做的开发，没有对其他环境做测试
 
 #### BUG提交
 如有bug欢迎提交。
