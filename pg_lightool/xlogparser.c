@@ -1942,7 +1942,10 @@ heep2_recoverMutiinsertRecord(XLogReaderState *record, BlockNumber blknum)
 	
 		char	   *endptr = NULL;
 		if(!targetPage)
-			br_error("Get a record now,but we can not find a base page for it.");
+		{
+			br_elog("Get a record now,but we can not find a base page for page %u.",blknum);
+			return;
+		}
 		
 		xlrec = (xl_heap_multi_insert *) XLogRecGetData(record);
 		data = xLogRecGetBlockData(record, 0, &datalen);
@@ -2242,7 +2245,10 @@ recoverInsertRecord(XLogReaderState *record, BlockNumber blknum)
 	else
 	{
 		if(!targetPage)
-			br_elog("Get a record now,but we can not find a base page for it.");
+		{
+			br_elog("Get a record now,but we can not find a base page for page %u.",blknum);
+			return;
+		}
 		xlrec = (xl_heap_insert *) XLogRecGetData(record);
 		ItemPointerSetBlockNumber(&target_tid, blknum);
 		ItemPointerSetOffsetNumber(&target_tid, xlrec->offnum);
@@ -2302,7 +2308,10 @@ recoverDeleteRecord(XLogReaderState *record, BlockNumber blknum)
 	else
 	{
 		if(!targetPage)
-			br_error("Get a record now,but we can not find a base page for it.");
+		{
+			br_elog("Get a record now,but we can not find a base page for page %u.",blknum);
+			return;
+		}
 		xlrec = (xl_heap_delete *) XLogRecGetData(record);
 		Assert(targetPage);
 		ItemPointerSetBlockNumber(&target_tid, blknum);
@@ -2389,7 +2398,10 @@ recoverUpdateRecord(XLogReaderState *record, BlockNumber blknum, bool hot_update
 	else if(findInArray)
 	{
 		if(!targetPageOld)
-			br_error("Get a record now,but we can not find a base page for it.");
+		{
+			br_elog("Get a record now,but we can not find a base page for page %u.",blknum);
+			return;
+		}
 		
 		if (PageGetMaxOffsetNumber(targetPageOld) >= xlrec->old_offnum)
 			lp = PageGetItemId(targetPageOld, xlrec->old_offnum);
@@ -2448,7 +2460,10 @@ recoverUpdateRecord(XLogReaderState *record, BlockNumber blknum, bool hot_update
 		recdata_end = recdata + datalen;
 
 		if(!targetPageNew)
-			br_error("Get a record now,but we can not find a base page for it.");
+		{
+			br_elog("Get a record now,but we can not find a base page for page %u.",blknum);
+			return;
+		}
 		if (PageGetMaxOffsetNumber(targetPageNew) + 1 < xlrec->new_offnum)
 			br_error("invalid max offset number");
 
@@ -2561,7 +2576,10 @@ recoverInplaceRecord(XLogReaderState *record, BlockNumber blknum)
 		char	   		*newtup = xLogRecGetBlockData(record, 0, &newlen);
 		
 		if(!targetPage)
-			br_error("Get a record now,but we can not find a base page for it.");
+		{
+			br_elog("Get a record now,but we can not find a base page for page %u.",blknum);
+			return;
+		}
 		
 		offnum = xlrec->offnum;
 		if (PageGetMaxOffsetNumber(targetPage) >= offnum)
@@ -2606,7 +2624,10 @@ recoverConfirmRecord(XLogReaderState *record, BlockNumber blknum)
 		OffsetNumber	offnum = 0;
 		ItemId			lp = NULL;
 		if(!targetPage)
-			br_error("Get a record now,but we can not find a base page for it.");
+		{
+			br_elog("Get a record now,but we can not find a base page for page %u.",blknum);
+			return;
+		}
 		
 		offnum = xlrec->offnum;
 		if (PageGetMaxOffsetNumber(targetPage) >= offnum)
@@ -2647,7 +2668,10 @@ recoverLockRecord(XLogReaderState *record, BlockNumber blknum)
 		OffsetNumber	offnum = 0;
 		ItemId			lp = NULL;
 		if(!targetPage)
-			br_error("Get a record now,but we can not find a base page for it.");
+		{
+			br_elog("Get a record now,but we can not find a base page for page %u.",blknum);
+			return;
+		}
 		
 		offnum = xlrec->offnum;
 		if (PageGetMaxOffsetNumber(targetPage) >= offnum)
