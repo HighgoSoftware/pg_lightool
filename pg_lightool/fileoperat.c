@@ -96,7 +96,7 @@ getFirstXlogFile(char *waldir)
 			}
 			else if(brc.parserPri.timeline != everytimeline)
 			{
-				br_error("could not stat file \"%s\"\n", fullpath);
+				br_error("could not mental muti timeline.\n");
 			}
 			if(0 == segmin)
 			{

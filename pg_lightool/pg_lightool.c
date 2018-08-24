@@ -399,7 +399,7 @@ do_walshow(void)
 int
 main(int argc, char *argv[])
 {
-	
+	bool	canshowwal = false;
 	atexit(pro_on_exit);
 	initializeLightool();
 	getProname(argv[0]);
@@ -410,9 +410,13 @@ main(int argc, char *argv[])
 	}
 	else if(CUR_KIND_WALSHOW == brc.curkind)
 	{
-		br_elog("wal show:Being developed");
-		nomal_exit();
-		//do_walshow();
+		if(canshowwal)
+			do_walshow();
+		else
+		{
+			br_elog("wal show:Being developed");
+			nomal_exit();
+		}
 	}
 	return 1;
 }

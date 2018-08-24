@@ -10,7 +10,7 @@ PGFILEDESC = "pg_lightool,my light tools of pg"
 
 PROGRAM = pg_lightool
 SRCS = \
-	pg_lightool.c util.c fileoperat.c xlogparser.c
+	pg_lightool.c util.c fileoperat.c xlogparser.c xlogread.c
 OBJS = $(SRCS:.c=.o)
 
 
