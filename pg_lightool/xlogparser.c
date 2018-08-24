@@ -1070,18 +1070,6 @@ heap_recoverInsertRecord(XLogReaderState *record, BlockNumber blknum)
 			br_elog("Get a record now,but we can not find a base page for page %u.",blknum);
 			return;
 		}
-<<<<<<< HEAD
-		xlrec = (xl_heap_insert *) XLogRecGetData(record);
-		ItemPointerSetBlockNumber(&target_tid, blknum);
-		ItemPointerSetOffsetNumber(&target_tid, xlrec->offnum);
-		data = xLogRecGetBlockData(record, 0, &datalen);
-
-		newlen = datalen - SizeOfHeapHeader;
-		Assert(datalen > SizeOfHeapHeader && newlen <= MaxHeapTupleSize);
-		memcpy((char *) &xlhdr, data, SizeOfHeapHeader);
-		data += SizeOfHeapHeader;
-=======
->>>>>>> origin/develop
 		htup = &tbuf.hdr;
 		xlrec = (xl_heap_insert *) XLogRecGetData(record);
 		getHeapInsertRecordTuple(record, htup, blknum, &newlen, xlrec);
