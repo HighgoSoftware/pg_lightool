@@ -30,15 +30,36 @@ pg_lightool is a light tool of postgres
 Usage:
   pg_lightool OPTION blockrecover
   pg_lightool OPTION walshow
+  pg_lightool OPTION datadis
+  pg_lightool OPTION pageinspect
 
 Common Options:
   -V, --version                         output version information, then exit
+
+For blockrecover:
   -l, --log                             whether to write a debug info
-  -f, --recovrel=spcid/dbid/relfilenode specify files to repair
-  -b, --block=n1[,n2,n3]                specify blocks to repair
+  -f, --relnode=spcid/dbid/relfilenode  specify files to repair
+  -b, --block=n1[,n2,n3]                specify blocks to repair(10 limit)
   -w, --walpath=walpath                 wallog read from
   -D, --pgdata=datapath                 data dir of database
-  -i, --immediate                       does not do a backup for old file
+  -i, --immediate			            does not do a backup for old file
+
+For datadis:
+  -f, --relnode=spcid/dbid/relfilenode  specify files to dis
+  -D, --pgdata=datapath                 data dir of database
+  -p, --place=outPtah                   place where store the result
+  -g, --grade=level                     1 to show file level(default);
+                                        2 to show page level;
+                                        3 to show all;
+  -d, --detail		                    wether to show detail info
+  -s, --small		                    show which ratio small than it
+
+For pageinspect:
+  -f, --relnode=spcid/dbid/relfilenode specify files to inspect
+  -D, --pgdata=datapath                 data dir of database
+  -p, --place=outPtah                   place where store the result
+  -b, --block=blkno                     specify blocks to inspect
+
 ```
 
 
