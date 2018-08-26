@@ -9,7 +9,7 @@
 #include "port.h"
 
 static ControlFileData *get_controlfile(const char *DataDir, const char *progname, bool *crc_ok_p);
-static bool fileExist(char *path);
+
 
 
 int
@@ -42,7 +42,24 @@ walPathCheck(char *path)
 		return true;
 }
 
-static bool
+uint64
+getfileSize(char *path)
+{
+	struct 	stat fst;
+	uint64	result = 0;
+	
+	Assert(path && 0 != strlen(path));
+	if (lstat(path, &fst) < 0)
+	{
+		br_error("file \"%s\" do not exist or fail to lstat", path);
+	}
+	if(!S_ISREG(fst.st_mode))
+		br_error("file \"%s\" is not a regular dile", path);
+	result = (uint64)fst.st_size;
+	return result;
+}
+
+bool
 fileExist(char *path)
 {
 	struct stat fst;
@@ -50,7 +67,24 @@ fileExist(char *path)
 	{
 		return false;
 	}
-	return true;
+	if(S_ISREG(fst.st_mode))
+		return true;
+	else
+		return false;
+}
+
+static bool
+dirExist(char *path)
+{
+	struct stat fst;
+	if (lstat(path, &fst) < 0)
+	{
+		return false;
+	}
+	if(S_ISDIR(fst.st_mode))
+		return true;
+	else
+		return false;
 }
 
 
@@ -199,6 +233,24 @@ checkPgdata(void)
 }
 
 void
+checkPlace(void)
+{
+	char	path[MAXPGPATH] = {0};
+	FILE	*fp = NULL;
+	Assert(brc.place);
+
+	sprintf(path, "%s/%s", brc.place, DATA_DIS_RESULT_FILE);
+	if(!dirExist(brc.place))
+		br_error("Dir \"%s\" is not exist\n", brc.place);
+
+	fp = fopen(path,"w");
+	if(!fp)
+		br_error("Fail to open file \"%s\"\n", path);
+	fclose(fp);
+	
+}
+
+void
 backupOriFile(char* filePath)
 {
 	char	*backupStr = "lightool_backup";
@@ -240,3 +292,5 @@ replaceFileBlock(char* filePath, uint32 blknoIneveryFile, Page page)
 	fclose(fp);
 	
 }
+
+

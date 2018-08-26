@@ -16,6 +16,10 @@
 3. xlogminer工具操作复杂（https://github.com/HighgoSoftware/XLogMiner）
 >现在考虑依托当前的系统表文件，对每一条wal日志进行解析
 
+3. 数据分布查看工具 
+>数据库在经过长时间的运行之后，有效数据不规则的分散在数据文件的各个地方。如何能得知每个page，每个segment到底存储了多少数据呢？
+>作者DIY了这个功能'datadis'到pg_lightool工具中。
+
 #### 安装教程
 
 1. 配置postgres安装bin目录的PATH环境变量
@@ -30,15 +34,36 @@ pg_lightool is a light tool of postgres
 Usage:
   pg_lightool OPTION blockrecover
   pg_lightool OPTION walshow
+  pg_lightool OPTION datadis
+  pg_lightool OPTION pageinspect
 
 Common Options:
   -V, --version                         output version information, then exit
+
+For blockrecover:
   -l, --log                             whether to write a debug info
-  -f, --recovrel=spcid/dbid/relfilenode specify files to repair
-  -b, --block=n1[,n2,n3]                specify blocks to repair
+  -f, --relnode=spcid/dbid/relfilenode  specify files to repair
+  -b, --block=n1[,n2,n3]                specify blocks to repair(10 limit)
   -w, --walpath=walpath                 wallog read from
   -D, --pgdata=datapath                 data dir of database
-  -i, --immediate                       does not do a backup for old file
+  -i, --immediate			            does not do a backup for old file
+
+For datadis:
+  -f, --relnode=spcid/dbid/relfilenode  specify files to dis
+  -D, --pgdata=datapath                 data dir of database
+  -p, --place=outPtah                   place where store the result
+  -g, --grade=level                     1 to show file level(default);
+                                        2 to show page level;
+                                        3 to show all;
+  -d, --detail		                    wether to show detail info
+  -s, --small		                    show which ratio small than it
+
+For pageinspect:
+  -f, --relnode=spcid/dbid/relfilenode specify files to inspect
+  -D, --pgdata=datapath                 data dir of database
+  -p, --place=outPtah                   place where store the result
+  -b, --block=blkno                     specify blocks to inspect
+
 ```
 
 

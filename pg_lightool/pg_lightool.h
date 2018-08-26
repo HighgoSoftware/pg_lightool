@@ -30,9 +30,22 @@
 #define MAXPGPATH				1024
 #define FirstNormalObjectId		16384
 
+#define		PAGEREAD_SHOWLEVEL_FILE		1
+#define		PAGEREAD_SHOWLEVEL_PAGE		2
+#define		PAGEREAD_SHOWLEVEL_ALL		3
+#define		PAGEREAD_SHOWLEVEL_ERROR	4
+
+
 #define	CUR_KIND_INVALID		0
 #define	CUR_KIND_BLOCKRECOVER	1
 #define	CUR_KIND_WALSHOW		2
+#define	CUR_KIND_RELDATADIS		3
+#define	CUR_KIND_PAGEINSPECT	4
+
+#define	DATA_DIS_RESULT_FILE	"datadis.txt"
+#define	PAGE_INS_RESULT_FILE	"pageinspect.txt"
+#define MAG_BLOCK_FILENO(blockno) (blockno/RELSEG_SIZE)
+#define MAG_BLOCK_BLKNO(blockno) (blockno%RELSEG_SIZE)
 
 
 typedef uintptr_t Datum;
@@ -60,12 +73,21 @@ typedef struct LightoolCtl
 	RelFileNode			rfn;
 	uint64				system_identifier;
 	char*				lightool;
-	char*				recovrel;
+	char*				relnode;
 	char*				walpath;
 	char*				blockstr;
 	char*				pgdata;
 	bool				debugout;
 	bool				immediate;
+
+	/*For datadis*/
+	char*				ratiostr;
+	bool				detail;
+	char				*place;
+	uint32				curFileNo;
+	int					showlevel;
+	uint32					ratio;
+	
 }LightoolCtl;
 
 extern LightoolCtl		brc;
@@ -93,5 +115,14 @@ extern void getRelpath(void);
 extern void replaceFileBlock(char* filePath, uint32 blknoIneveryFile, Page page);
 extern void backupOriFile(char* filePath);
 extern void getCurTime(char	*curtime);
+extern uint64 getfileSize(char *path);
+extern bool fileExist(char *path);
+
+
+/*pageread.c*/
+extern void startDataDis(void);
+extern void checkPlace(void);
+extern void startInspect(void);
+
 
 #endif

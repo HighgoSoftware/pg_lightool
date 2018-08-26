@@ -49,24 +49,24 @@ parse_uint32(const char *value, uint32 *result)
 }
 
 void
-getDataFile(char *recovrel)
+getDataFile(char *relnode)
 {
 	char	*datafileEnableStr = "0123456789/";
 	Oid		tbsoid = 0, dboid = 0, relNode = 0, tempoid = 0;
 	int		ssresult = 0, loop = 0;
 	
-	for(; loop < strlen(recovrel); loop++)
+	for(; loop < strlen(relnode); loop++)
 	{
-		if(!strchr(datafileEnableStr,recovrel[loop]))
+		if(!strchr(datafileEnableStr,relnode[loop]))
 		{
-			printf("Invalid datafile argument \"%s\"\n",recovrel);
+			printf("Invalid datafile argument \"%s\"\n",relnode);
 			error_exit();
 		}
 	}
-	ssresult = sscanf(recovrel,"%u/%u/%u/%u",&tbsoid, &dboid, &relNode, &tempoid);
+	ssresult = sscanf(relnode,"%u/%u/%u/%u",&tbsoid, &dboid, &relNode, &tempoid);
 	if(3 != ssresult)
 	{
-		printf("Invalid datafile argument \"%s\"\n",recovrel);
+		printf("Invalid datafile argument \"%s\"\n",relnode);
 		error_exit();
 	}
 	if(0 == tbsoid)
