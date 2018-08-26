@@ -16,6 +16,10 @@
 3. xlogminer工具操作复杂（https://github.com/HighgoSoftware/XLogMiner）
 >现在考虑依托当前的系统表文件，对每一条wal日志进行解析
 
+3. 数据分布查看工具 
+>数据库在经过长时间的运行之后，有效数据不规则的分散在数据文件的各个地方。如何能得知每个page，每个segment到底存储了多少数据呢？
+>作者DIY了这个功能'datadis'到pg_lightool工具中。
+
 #### 安装教程
 
 1. 配置postgres安装bin目录的PATH环境变量
