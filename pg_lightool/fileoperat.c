@@ -34,9 +34,9 @@ fuzzy_open_file(const char *directory, const char *fname)
 bool
 walPathCheck(char *path)
 {
-	if(!path)
+	if (!path)
 		return false;
-	if(4 != pg_check_dir(path))
+	if (4 != pg_check_dir(path))
 		return false;
 	else
 		return true;
@@ -53,7 +53,7 @@ getfileSize(char *path)
 	{
 		br_error("file \"%s\" do not exist or fail to lstat", path);
 	}
-	if(!S_ISREG(fst.st_mode))
+	if (!S_ISREG(fst.st_mode))
 		br_error("file \"%s\" is not a regular dile", path);
 	result = (uint64)fst.st_size;
 	return result;
@@ -67,7 +67,7 @@ fileExist(char *path)
 	{
 		return false;
 	}
-	if(S_ISREG(fst.st_mode))
+	if (S_ISREG(fst.st_mode))
 		return true;
 	else
 		return false;
@@ -81,7 +81,7 @@ dirExist(char *path)
 	{
 		return false;
 	}
-	if(S_ISDIR(fst.st_mode))
+	if (S_ISDIR(fst.st_mode))
 		return true;
 	else
 		return false;
@@ -124,34 +124,34 @@ getFirstXlogFile(char *waldir)
 		if (S_ISREG(fst.st_mode))
 		{
 			XLogFromFileName(xlde->d_name, &everytimeline, &segno);
-			if(0 == brc.parserPri.timeline)
+			if (0 == brc.parserPri.timeline)
 			{
 				brc.parserPri.timeline = everytimeline;
 			}
-			else if(brc.parserPri.timeline != everytimeline)
+			else if (brc.parserPri.timeline != everytimeline)
 			{
 				br_error("could not mental muti timeline.\n");
 			}
-			if(0 == segmin)
+			if (0 == segmin)
 			{
 				segmin = segno;
 				segmax = segno;
 				XLogSegNoOffsetToRecPtr(segmin, 0, brc.parserPri.startptr);
 				XLogSegNoOffsetToRecPtr(segmax + 1, 0, brc.parserPri.endptr);
 			}
-			else if(segmin > segno)
+			else if (segmin > segno)
 			{
 				segmin = segno;
 				XLogSegNoOffsetToRecPtr(segmin, 0, brc.parserPri.startptr);
 			}
-			else if(segmax < segno)
+			else if (segmax < segno)
 			{
 				segmax = segno;
 				XLogSegNoOffsetToRecPtr(segmax + 1, 0, brc.parserPri.endptr);
 			}
 		}
 	}
-	if(brc.debugout)
+	if (brc.debugout)
 		printf("LOG:parser range:0x%x~0x%x\n", (uint32)brc.parserPri.startptr, (uint32)brc.parserPri.endptr);
 }
 
@@ -221,9 +221,9 @@ checkPgdata(void)
 {
 	ControlFileData *cfd = NULL;
 	bool			crcret = false;	
-	if('/' == brc.pgdata[strlen(brc.pgdata)-1])
+	if ('/' == brc.pgdata[strlen(brc.pgdata)-1])
 		brc.pgdata[strlen(brc.pgdata)-1] = 0;
-	if(!walPathCheck(brc.pgdata))
+	if (!walPathCheck(brc.pgdata))
 	{
 		br_error("Invalid pgdata argument \"%s\"\n", brc.pgdata);
 	}
@@ -240,11 +240,11 @@ checkPlace(void)
 	Assert(brc.place);
 
 	sprintf(path, "%s/%s", brc.place, DATA_DIS_RESULT_FILE);
-	if(!dirExist(brc.place))
+	if (!dirExist(brc.place))
 		br_error("Dir \"%s\" is not exist\n", brc.place);
 
 	fp = fopen(path,"w");
-	if(!fp)
+	if (!fp)
 		br_error("Fail to open file \"%s\"\n", path);
 	fclose(fp);
 	
@@ -255,13 +255,13 @@ backupOriFile(char* filePath)
 {
 	char	*backupStr = "lightool_backup";
 	char	backupFile[MAXPGPATH] = {0};
-	if(!brc.immediate)
+	if (!brc.immediate)
 	{
 		sprintf(backupFile,"%s.%s_%s", filePath, backupStr, brc.execTime);
-		if(!fileExist(backupFile))
+		if (!fileExist(backupFile))
 		{
 			char	cmd[MAXPGPATH] = {0};
-			if(brc.debugout)
+			if (brc.debugout)
 				br_elog("LOG:backup file %s",filePath);
 			sprintf(cmd,"cp %s %s",filePath, backupFile);
 			system(cmd);
@@ -280,7 +280,7 @@ replaceFileBlock(char* filePath, uint32 blknoIneveryFile, Page page)
 	Assert(page);
 
 	fp = fopen(filePath,"rb+");
-	if(!fp)
+	if (!fp)
 		br_error("Fail to open file \"%s\"", filePath);
 
 	br_elog("    BlockRecover:file->%s,page:%u",filePath,blknoIneveryFile);

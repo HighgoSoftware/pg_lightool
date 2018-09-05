@@ -495,7 +495,7 @@ ValidXLogRecordHeader(XLogReaderState *state, XLogRecPtr RecPtr,
 {
 	if (record->xl_tot_len < SizeOfXLogRecord)
 	{
-		if(0 == record->xl_tot_len)
+		if (0 == record->xl_tot_len)
 			br_elog("LOG:invalid record length at %X/%X: wanted %u, got %u, maybe arrive end",
 							  (uint32) (RecPtr >> 32), (uint32) RecPtr,
 							  (uint32) SizeOfXLogRecord, record->xl_tot_len);
@@ -1042,7 +1042,7 @@ XLogParserReadRecord(XLogReaderState *state, XLogRecPtr RecPtr, char **errormsg)
 		/* XXX: more validation should be done here */
 		if (total_len < SizeOfXLogRecord)
 		{
-			if(0 == total_len)
+			if (0 == total_len)
 				br_elog("LOG:invalid record length at %X/%X: wanted %u, got %u, maybe arrive end",
 								  (uint32) (RecPtr >> 32), (uint32) RecPtr,
 								  (uint32) SizeOfXLogRecord, total_len);

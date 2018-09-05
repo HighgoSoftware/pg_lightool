@@ -55,21 +55,21 @@ getDataFile(char *relnode)
 	Oid		tbsoid = 0, dboid = 0, relNode = 0, tempoid = 0;
 	int		ssresult = 0, loop = 0;
 	
-	for(; loop < strlen(relnode); loop++)
+	for (; loop < strlen(relnode); loop++)
 	{
-		if(!strchr(datafileEnableStr,relnode[loop]))
+		if (!strchr(datafileEnableStr,relnode[loop]))
 		{
 			printf("Invalid datafile argument \"%s\"\n",relnode);
 			error_exit();
 		}
 	}
 	ssresult = sscanf(relnode,"%u/%u/%u/%u",&tbsoid, &dboid, &relNode, &tempoid);
-	if(3 != ssresult)
+	if (3 != ssresult)
 	{
 		printf("Invalid datafile argument \"%s\"\n",relnode);
 		error_exit();
 	}
-	if(0 == tbsoid)
+	if (0 == tbsoid)
 		tbsoid = PG_DEFAULT_TBS_OID;
 	brc.rfn.spcNode = tbsoid;
 	brc.rfn.dbNode = dboid;
@@ -84,15 +84,15 @@ getRelpath(void)
 {
 	char	basePath[MAXPGPATH] = {0};
 	
-	if(PG_DEFAULT_TBS_OID == brc.rfn.spcNode || 0 ==  brc.rfn.spcNode)
+	if (PG_DEFAULT_TBS_OID == brc.rfn.spcNode || 0 ==  brc.rfn.spcNode)
 	{
 		sprintf(basePath, "%s/base/%u", brc.pgdata, brc.rfn.dbNode);
 	}
-	else if(PG_GLOBLE_TBS_OID == brc.rfn.spcNode)
+	else if (PG_GLOBLE_TBS_OID == brc.rfn.spcNode)
 	{
 		sprintf(basePath, "%s/database/global", brc.pgdata);
 	}
-	else if(FirstNormalObjectId < brc.rfn.spcNode)
+	else if (FirstNormalObjectId < brc.rfn.spcNode)
 	{
 		char	tempPath[MAXPGPATH] = {0};
 		ssize_t	len = 0;
@@ -123,26 +123,26 @@ getRecoverBlock(char *block)
 
 	Assert(block);
 	blockLength = strlen(block);
-	if(0 >= blockLength)
+	if (0 >= blockLength)
 		goto error_condition;
-	if(',' == block[0] || ',' == block[blockLength - 1])
+	if (',' == block[0] || ',' == block[blockLength - 1])
 		goto error_condition;
 	currStart = block;
-	for(; loop < blockLength; loop++)
+	for (; loop < blockLength; loop++)
 	{
-		if(!strchr(blockEnableStr,block[loop]))
+		if (!strchr(blockEnableStr,block[loop]))
 			goto error_condition;
-		if(',' == block[loop])
+		if (',' == block[loop])
 		{
 			lb = cb;
 			cb = block + loop;
 			
-			if(lb && (lb + 1 == cb))
+			if (lb && (lb + 1 == cb))
 				goto error_condition;
 			memset(tempBkockBuff, 0, 11);
 			memcpy(tempBkockBuff, currStart, cb - currStart);
 			currStart = cb + 1;
-			if(!parse_uint32(tempBkockBuff, &brc.recoverBlock[bnum]))
+			if (!parse_uint32(tempBkockBuff, &brc.recoverBlock[bnum]))
 			{
 				printf("Wrong block input \"%s\"\n", tempBkockBuff);
 				error_exit();
@@ -153,24 +153,24 @@ getRecoverBlock(char *block)
 	/*mental the last number*/
 	memset(tempBkockBuff, 0, 11);
 	memcpy(tempBkockBuff, currStart, (block + blockLength - 1) - currStart + 1);
-	if(!parse_uint32(tempBkockBuff, &brc.recoverBlock[bnum]))
+	if (!parse_uint32(tempBkockBuff, &brc.recoverBlock[bnum]))
 	{
 		printf("Wrong block input \"%s\"\n", tempBkockBuff);
 		error_exit();
 	}
 	bnum++;
 	/* There should not be same num in block argment */
-	for(loop = 0; loop < bnum; loop++)
+	for (loop = 0; loop < bnum; loop++)
 	{
-		for(loop1 = loop + 1; loop1 < bnum; loop1++)
+		for (loop1 = loop + 1; loop1 < bnum; loop1++)
 		{
-			if(brc.recoverBlock[loop1] == brc.recoverBlock[loop])
+			if (brc.recoverBlock[loop1] == brc.recoverBlock[loop])
 				goto error_condition;
 		}
 	}
 	
 	brc.rbNum = bnum;
-	if(RECOVER_BLOCK_MAX < brc.rbNum)
+	if (RECOVER_BLOCK_MAX < brc.rbNum)
 	{
 		printf("The number of block can not be greater than \"%d\"\n", RECOVER_BLOCK_MAX);
 		error_exit();
