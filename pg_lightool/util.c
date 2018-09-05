@@ -184,11 +184,14 @@ error_condition:
 	
 }
 
-void	error_exit(void)
+void
+error_exit(void)
 {
 	exit(1);
 }
-void	nomal_exit(void)
+
+void
+nomal_exit(void)
 {
 	exit(0);
 }

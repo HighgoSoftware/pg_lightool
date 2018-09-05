@@ -20,19 +20,19 @@
 LightoolCtl		brc;
 
 static struct option long_options[] = {
-		{"help", no_argument, NULL, '?'},
-		{"version", no_argument, NULL, 'V'},
-		{"log", no_argument, NULL, 'l'},
-		{"relnode", required_argument, NULL, 'f'},
-		{"block", required_argument, NULL, 'b'},
-		{"waldir", required_argument, NULL, 'w'},
-		{"immediate", no_argument, NULL, 'i'},
-		{"place", required_argument, NULL, 'p'},
-		{"detail", no_argument, NULL, 'd'},
-		{"grade", required_argument, NULL, 'g'},
-		{"pgdata", required_argument, NULL, 'D'},
-		{"small", required_argument, NULL, 's'},
-		{NULL, 0, NULL, 0}
+	{"help", no_argument, NULL, '?'},
+	{"version", no_argument, NULL, 'V'},
+	{"log", no_argument, NULL, 'l'},
+	{"relnode", required_argument, NULL, 'f'},
+	{"block", required_argument, NULL, 'b'},
+	{"waldir", required_argument, NULL, 'w'},
+	{"immediate", no_argument, NULL, 'i'},
+	{"place", required_argument, NULL, 'p'},
+	{"detail", no_argument, NULL, 'd'},
+	{"grade", required_argument, NULL, 'g'},
+	{"pgdata", required_argument, NULL, 'D'},
+	{"small", required_argument, NULL, 's'},
+	{NULL, 0, NULL, 0}
 };
 		
 static void do_help(void);
@@ -132,7 +132,6 @@ do_help(void)
 static void
 blockRecoverArguCheck(void)
 {
-		
 	if(!brc.relnode || !brc.walpath || !brc.blockstr || !brc.pgdata)
 	{
 		br_error("argument relnode,walpath,block,pgdata is necessary.\n");
@@ -156,7 +155,6 @@ blockRecoverArguCheck(void)
 static void
 walshowArguCheck(void)
 {
-		
 	if(!brc.walpath)
 	{
 		br_error("argument walpath is necessary.\n");
@@ -562,6 +560,6 @@ main(int argc, char *argv[])
 		do_pageinspect();
 	}
 	
-	return 1;
+	return 0;
 }
 
