@@ -186,9 +186,9 @@ error_condition:
 
 void	error_exit(void)
 {
-	exit(0);
+	exit(1);
 }
 void	nomal_exit(void)
 {
-	exit(1);
+	exit(0);
 }
