@@ -17,6 +17,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include "catalog/pg_control.h"
 
 
 
@@ -67,18 +68,25 @@ typedef struct LightoolCtl
 	Page				pageArray[RECOVER_BLOCK_MAX];
 	char				relpath[MAXPGPATH];
 	char				execTime[20];
+	int64				endtime;
+	uint32				endxid;
 	XLogReaderState		*xlogreader;
 	XLogParserPrivate 	parserPri;
 	uint32				rbNum;
 	RelFileNode			rfn;
 	uint64				system_identifier;
+	TimeLineID			tlid;
 	char*				lightool;
 	char*				relnode;
 	char*				walpath;
 	char*				blockstr;
 	char*				pgdata;
+	char*				backuppath;
+	char*				endtimestr;
+	char*				endxidstr;
 	bool				debugout;
 	bool				immediate;
+	XLogRecPtr			startlsn;
 
 	/*For datadis*/
 	char*				ratiostr;
@@ -108,7 +116,6 @@ extern void configXlogRead(char	*walpath);
 extern void getFirstXlogFile(char *waldir);
 extern int fuzzy_open_file(const char *directory, const char *fname);
 extern void recoverRecord(XLogReaderState *record);
-extern void showRecord(XLogReaderState *record);
 extern void xLogReaderFree(XLogReaderState *state);
 extern void checkPgdata(void);
 extern void getRelpath(void);
@@ -118,11 +125,14 @@ extern void getCurTime(char	*curtime);
 extern uint64 getfileSize(char *path);
 extern bool fileExist(char *path);
 
-
 /*pageread.c*/
 extern void startDataDis(void);
 extern void checkPlace(void);
 extern void startInspect(void);
+extern void fillPageArray(void);
 
-
+extern ControlFileData *get_controlfile(const char *DataDir, const char *progname, bool *crc_ok_p);
+extern void checkBackup(void);
+extern void getTarBlockPath(char *filepath, char* relpath, int index);
+extern void readBackupPage(Page *page, char *filepath, uint32 block);
 #endif

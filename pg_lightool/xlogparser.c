@@ -353,78 +353,6 @@ recoverRecord(XLogReaderState *record)
 	}
 }
 
-void
-showRecord(XLogReaderState *record)
-{
-	uint8				rmid = 0;
-	uint8				info = 0;
-	BlockNumber 		blknum = 0;
-	RelFileNode			rfnode;
-
-
-	rmid = XLogRecGetRmid(record);
-	info = XLogRecGetInfo(record) & ~XLR_INFO_MASK;
-	info &= XLOG_HEAP_OPMASK;
-
-	memset(&rfnode, 0, sizeof(RelFileNode));
-	xLogRecGetBlockTag(record, 0, &rfnode, NULL, &blknum);
-	if (RM_HEAP_ID == rmid)
-	{
-		if (XLOG_HEAP_INSERT == info)
-		{
-			/*getHeapInsertRecordTuple(XLogReaderState *record, HeapTupleHeader htup, BlockNumber blknum, 
-						uint32 *newlen, xl_heap_insert	*xlrec)*/
-			br_elog("RM_HEAP_ID:INSERT: RELFILENODE(%u)",  rfnode.relNode);
-		}
-		else if (XLOG_HEAP_DELETE == info)
-		{
-			br_elog("RM_HEAP_ID:DELETE: RELFILENODE(%u)",  rfnode.relNode);
-		}
-		else if (XLOG_HEAP_UPDATE == info)
-		{
-			br_elog("RM_HEAP_ID:UPDATE: RELFILENODE(%u)",  rfnode.relNode);
-		}
-		else if (XLOG_HEAP_HOT_UPDATE == info)
-		{
-			br_elog("RM_HEAP_ID:HOT UPDATE: RELFILENODE(%u)", rfnode.relNode);
-		}
-		else if (XLOG_HEAP_CONFIRM == info)
-		{
-			br_elog("RM_HEAP_ID:CONFIRM");
-		}
-		else if (XLOG_HEAP_LOCK == info)
-		{
-			br_elog("RM_HEAP_ID:LOCK");
-		}
-		else if (XLOG_HEAP_INPLACE == info)
-		{
-			br_elog("RM_HEAP_ID:INPLACE");
-		}
-	}
-	else if (RM_HEAP2_ID == rmid)
-	{
-		if (XLOG_HEAP2_CLEAN == info)
-		{
-			br_elog("RM_HEAP2_ID:CLEAN");
-		}
-		else if (XLOG_HEAP2_FREEZE_PAGE == info)
-		{
-			br_elog("RM_HEAP2_ID:FREEZE_PAGE");
-		}
-		else if (XLOG_HEAP2_VISIBLE == info)
-		{
-			br_elog("RM_HEAP2_ID:VISIBLE");
-		}
-		else if (XLOG_HEAP2_LOCK_UPDATED == info)
-		{
-			br_elog("RM_HEAP2_ID:LOCK_UPDATED");
-		}
-		else if (XLOG_HEAP2_MULTI_INSERT == info)
-		{
-			br_elog("RM_HEAP2_ID:MULTI_INSERT");
-		}
-	}
-}
 
 
 
@@ -1571,6 +1499,67 @@ pageInit(Size specialSize)
 	PageSetPageSizeAndVersion(page, BLCKSZ, PG_PAGE_LAYOUT_VERSION);
 	return page;
 	/* p->pd_prune_xid = InvalidTransactionId;		done by above MemSet */
+}
+
+void
+readBackupPage(Page *page, char *filepath, uint32 block)
+{
+	FILE 	*fp = NULL;
+	size_t	readcount = 0;
+	size_t	filesize = 0;
+
+	Assert(page && filepath);
+	fp = fopen(filepath, "rb");
+	if(!fp)
+	{
+		if(2 == errno)
+			return;
+		br_error("can not open file %s to read:%m", filepath);
+	}
+	fseek(fp, 0L, SEEK_END); /* 定位到文件末尾 */
+	filesize = ftell(fp); /* 得到文件大小 */
+
+	fseek(fp, 0, SEEK_SET);
+	if(0 != block)
+	{
+		fseek(fp, block * BLCKSZ, SEEK_SET);
+	}
+	if(filesize == ftell(fp))
+	{
+		return;
+	}
+	*page = pageInit(0);
+	readcount = fread(*page, 1, BLCKSZ, fp);
+	if(BLCKSZ != readcount)
+		br_error("read from file:%s block:%u,and get %ld byte", filepath, block, readcount);
+	if(brc.debugout)
+		br_elog("Get backup page:%u", block);
+	fclose(fp);
+}
+
+
+void
+fillPageArray(void)
+{
+	int		loop = 0;
+	char	relpath[MAXPGPATH] = {0};
+	char	filepath[MAXPGPATH] = {0};
+	char	*secPathptr = NULL;
+	uint32		blknoIneveryFile = 0;
+
+	if(!brc.backuppath)
+		return;
+	secPathptr = brc.relpath + strlen(brc.pgdata);
+	sprintf(relpath, "%s/%s", brc.backuppath, secPathptr);
+	if(brc.debugout)
+		br_elog("relpath in backup is %s", relpath);
+	for (; loop < brc.rbNum; loop++)
+	{
+		memset(filepath, 0, MAXPGPATH);
+		getTarBlockPath(filepath, relpath, loop);
+		blknoIneveryFile = MAG_BLOCK_BLKNO(brc.recoverBlock[loop]);
+		readBackupPage(&brc.pageArray[loop], filepath, blknoIneveryFile);
+	}
 }
 
 static void

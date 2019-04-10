@@ -184,6 +184,20 @@ error_condition:
 	
 }
 
+/*函数使用时注意filepath需要是有PGMAXPATH size的空间*/
+void
+getTarBlockPath(char *filepath, char *relpath,int index)
+{
+	uint32		relFileNum = 0;
+
+	Assert(filepath);
+	relFileNum = MAG_BLOCK_FILENO(brc.recoverBlock[index]);
+	if (0 != relFileNum)
+		sprintf(filepath, "%s/%u.%u", relpath, brc.rfn.relNode, relFileNum);
+	else
+		sprintf(filepath, "%s/%u", relpath, brc.rfn.relNode);
+}
+
 void
 error_exit(void)
 {

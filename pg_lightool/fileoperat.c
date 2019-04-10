@@ -8,9 +8,6 @@
 #include "catalog/pg_control.h"
 #include "port.h"
 
-static ControlFileData *get_controlfile(const char *DataDir, const char *progname, bool *crc_ok_p);
-
-
 
 int
 fuzzy_open_file(const char *directory, const char *fname)
@@ -29,6 +26,7 @@ fuzzy_open_file(const char *directory, const char *fname)
 		return fd;
 	return -1;
 }
+
 
 
 bool
@@ -151,11 +149,14 @@ getFirstXlogFile(char *waldir)
 			}
 		}
 	}
+	if(brc.parserPri.startptr > brc.startlsn || brc.parserPri.endptr < brc.startlsn)
+		br_error("can not find lsn %x/%x", (uint32)(brc.startlsn >> 32), (uint32)(brc.startlsn));
 	if (brc.debugout)
-		printf("LOG:parser range:0x%x~0x%x\n", (uint32)brc.parserPri.startptr, (uint32)brc.parserPri.endptr);
+		br_elog("LOG:parser range:0x%x~0x%x\n", (uint32)brc.parserPri.startptr, (uint32)brc.parserPri.endptr);
+	brc.parserPri.startptr = brc.startlsn;
 }
 
-static ControlFileData *
+ControlFileData *
 get_controlfile(const char *DataDir, const char *progname, bool *crc_ok_p)
 {
 	ControlFileData *ControlFile;
@@ -229,6 +230,7 @@ checkPgdata(void)
 	}
 	cfd = get_controlfile(brc.pgdata, brc.lightool, &crcret);
 	brc.system_identifier = cfd->system_identifier;
+	brc.tlid = cfd->checkPointCopy.ThisTimeLineID;
 	pfree(cfd);
 }
 

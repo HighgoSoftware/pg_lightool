@@ -28,6 +28,7 @@ static struct option long_options[] = {
 	{"waldir", required_argument, NULL, 'w'},
 	{"immediate", no_argument, NULL, 'i'},
 	{"place", required_argument, NULL, 'p'},
+	{"backuppath", required_argument, NULL, 'r'},
 	{"detail", no_argument, NULL, 'd'},
 	{"grade", required_argument, NULL, 'g'},
 	{"pgdata", required_argument, NULL, 'D'},
@@ -47,10 +48,10 @@ static void mentalRecord(void);
 static void cleanSpace(void);
 static void replacePages(void);
 static void do_blockrecover(void);
-static void do_walshow(void);
+//static void do_walshow(void);
 static void do_datadis(void);
 static void do_pageinspect(void);
-static void walshowArguCheck(void);
+//static void walshowArguCheck(void);
 static void blockRecoverArguCheck(void);
 static void datadisArguCheck(void);
 static void pageinspectArguCheck(void);
@@ -97,7 +98,6 @@ do_help(void)
 	printf("%s is a light tool of postgres\n\n", brc.lightool);
 	printf("Usage:\n");
 	printf("  %s OPTION blockrecover\n", brc.lightool);
-	printf("  %s OPTION walshow\n", brc.lightool);
 	printf("  %s OPTION datadis\n", brc.lightool);
 	printf("  %s OPTION pageinspect\n", brc.lightool);
 
@@ -111,6 +111,9 @@ do_help(void)
 	printf("  -w, --walpath=walpath                 wallog read from\n");
 	printf("  -D, --pgdata=datapath                 data dir of database\n");
 	printf("  -i, --immediate			            does not do a backup for old file\n");
+	printf("  -r, --backuppath			            support pg_rman $BACKUP_PATH\n");
+//	printf("  -e, --endtime							end time of recovery\n");
+//	printf("  -x, --xid								end xid of recovery\n");
 
 	printf("\nFor datadis:\n");
 	printf("  -f, --relnode=spcid/dbid/relfilenode specify files to dis\n");
@@ -150,21 +153,9 @@ blockRecoverArguCheck(void)
 
 	/*pgdata check*/
 	checkPgdata();
-}
 
-static void
-walshowArguCheck(void)
-{
-	if (!brc.walpath)
-	{
-		br_error("argument walpath is necessary.\n");
-	}
-	
-	/*walpath check*/
-	if (!walPathCheck(brc.walpath))
-	{
-		br_error("Invalid walpath argument \"%s\"\n", brc.walpath);
-	}
+	/*备份集timeline检查*/
+	checkBackup();
 }
 
 static void
@@ -259,7 +250,7 @@ arguMentParser(int argc, char *argv[])
 	optind = 1;
 	while (optind < argc)
 	{
-		while (-1 != (c = getopt_long(argc, argv, "?Vlf:b:w:D:ip:dg:s:",long_options, &option_index)))
+		while (-1 != (c = getopt_long(argc, argv, "?Vlf:b:w:D:ip:dg:s:r:",long_options, &option_index)))
 		{
 			switch (c)
 			{
@@ -300,6 +291,14 @@ arguMentParser(int argc, char *argv[])
 					else
 						brc.showlevel = PAGEREAD_SHOWLEVEL_ERROR;
 					break;
+				case 'r':
+					brc.backuppath = (char*)strdup(optarg);
+					break;
+				case 'e':
+					brc.endtimestr = (char*)strdup(optarg);
+					break;
+				case 'x':
+					brc.endxidstr = (char*)strdup(optarg);
 				default:
 					do_advice_lightool();
 					error_exit();
@@ -315,10 +314,6 @@ arguMentParser(int argc, char *argv[])
 			if (0 == strcmp("blockrecover",argv[optind]))
 			{
 				brc.curkind = CUR_KIND_BLOCKRECOVER;
-			}
-			else if (0 == strcmp("walshow",argv[optind]))
-			{
-				brc.curkind = CUR_KIND_WALSHOW;
 			}
 			else if (0 == strcmp("datadis",argv[optind]))
 			{
@@ -414,8 +409,6 @@ mentalRecord(void)
 		brc.parserPri.first_record = InvalidXLogRecPtr;
 		if (CUR_KIND_BLOCKRECOVER == brc.curkind)
 			recoverRecord(brc.xlogreader);
-		else if (CUR_KIND_WALSHOW == brc.curkind)
-			showRecord(brc.xlogreader);
 	}
 }
 
@@ -424,27 +417,26 @@ replacePages(void)
 {
 	int		loop = 0;
 	char	filePath[MAXPGPATH] = {0};
+	bool	getreplace = false;;
 
 	for (; loop < brc.rbNum; loop++)
 	{
 		uint32		blknoIneveryFile = 0;
-		uint32		relFileNum = 0;
+		//uint32		relFileNum = 0;
 		if (brc.pageArray[loop])
 		{
 			memset(filePath, 0, MAXPGPATH);
-			relFileNum = MAG_BLOCK_FILENO(brc.recoverBlock[loop]);
+			getTarBlockPath(filePath, brc.relpath, loop);
 			blknoIneveryFile = MAG_BLOCK_BLKNO(brc.recoverBlock[loop]);
-			if (0 != relFileNum)
-				sprintf(filePath, "%s/%u.%u",brc.relpath,brc.rfn.relNode, relFileNum);
-			else
-				sprintf(filePath, "%s/%u",brc.relpath, brc.rfn.relNode);
 			if (brc.debugout)
 				br_elog("recover file %s pagenoInfile %u", filePath, blknoIneveryFile);
 			backupOriFile(filePath);
-			replaceFileBlock(filePath, blknoIneveryFile, brc.pageArray[loop]);	
+			replaceFileBlock(filePath, blknoIneveryFile, brc.pageArray[loop]);
+			getreplace = true;
 		}
-		
 	}
+	if(!getreplace)
+		br_elog("Do nothing page replace.");
 }
 
 static void
@@ -469,11 +461,14 @@ do_blockrecover(void)
 	int		loop = 0;
 
 	blockRecoverArguCheck();
+	getRelpath();
+	fillPageArray();
 	if (brc.debugout)
 	{
 		br_elog("LOG:datafile is %u/%u/%u", brc.rfn.dbNode, brc.rfn.relNode, brc.rfn.spcNode);
 		br_elog("LOG:walpath is %s", brc.walpath);
-		br_elog("Recover blocks is");
+		br_elog("LOG:redo start LSN is %x/%x", (uint32)(brc.startlsn >> 32), (uint32)brc.startlsn);
+		br_elog("Recover blocks is:");
 		for (; loop < brc.rbNum; loop++)
 			printf("%u ", brc.recoverBlock[loop]);
 		printf("\n");
@@ -484,33 +479,7 @@ do_blockrecover(void)
 	if (brc.debugout)
 		printf("LOG:first_record 0x%x\n", (uint32)brc.parserPri.first_record);
 	mentalRecord();
-	if (brc.debugout)
-	{
-		for (loop = 0; loop < brc.rbNum; loop++)
-		{
-			if (brc.pageArray[loop])
-				printf("%d ", brc.recoverBlock[loop]);
-		}
-		printf("\n");
-	}
-	getRelpath();
 	replacePages();
-
-}
-
-static void
-do_walshow(void)
-{
-	walshowArguCheck();
-	if (brc.debugout)
-	{
-		br_elog("walpath is %s", brc.walpath);
-	}
-	getFirstXlogFile(brc.walpath);
-	startXlogRead();
-	if (brc.debugout)
-		printf("first_record: 0x%x\n", (uint32)brc.parserPri.first_record);
-	mentalRecord();
 }
 
 static void
@@ -532,7 +501,6 @@ do_pageinspect(void)
 int
 main(int argc, char *argv[])
 {
-	bool	canshowwal = false;
 	atexit(pro_on_exit);
 	initializeLightool();
 	getProname(argv[0]);
@@ -540,16 +508,6 @@ main(int argc, char *argv[])
 	if (CUR_KIND_BLOCKRECOVER == brc.curkind)
 	{
 		do_blockrecover();
-	}
-	else if (CUR_KIND_WALSHOW == brc.curkind)
-	{
-		if (canshowwal)
-			do_walshow();
-		else
-		{
-			br_elog("wal show:Being developed");
-			nomal_exit();
-		}
 	}
 	else if (CUR_KIND_RELDATADIS == brc.curkind)
 	{
