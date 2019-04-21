@@ -151,4 +151,5 @@ extern void copyBackupRel(void);
 extern void checkEndLoc(void);
 extern bool parse_time(const char *value, time_t *time);
 extern time_t timestamptz_to_timet(TimestampTz t);
+extern void moveRestoreFile(void);
 #endif

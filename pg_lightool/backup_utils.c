@@ -155,7 +155,7 @@ checkEndLoc(void)
 	if(brc.endxidstr && brc.endtimestr)
 		br_error("endxid and endtime can not pointed at same time.");
 	if(brc.endxidstr || brc.endtimestr)
-		if(brc.backuppath)
+		if(!brc.backuppath)
 		{
 			br_error("only whole table recover support argument encxid and endtime");
 		}

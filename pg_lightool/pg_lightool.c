@@ -418,7 +418,7 @@ mentalRecord(void)
 			recoverRecord(brc.xlogreader);
 		if(brc.reachend)
 		{
-			br_elog("reach end that you pointed");
+			br_elog("Reach end that you pointed");
 			break;
 		}
 	}
@@ -502,7 +502,10 @@ do_blockrecover(void)
 	if (brc.debugout)
 		printf("LOG:first_record 0x%x\n", (uint32)brc.parserPri.first_record);
 	mentalRecord();
-	replacePages();
+	if(!brc.ifwholerel)
+		replacePages();
+	else
+		moveRestoreFile();
 }
 
 static void

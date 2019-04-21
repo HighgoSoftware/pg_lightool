@@ -381,7 +381,6 @@ getTarFileNum(char *path, Oid relnode)
 		{
 			if(strstr(ent->d_name, relNodeStr) || 0 == strcmp(ent->d_name,relNodeStr_o))
 			{
-				br_elog("%s, %s", relNodeStr, ent->d_name);
 				countNum++;
 			}
 		}
@@ -491,4 +490,39 @@ copyBackupRel(void)
 	secPathptr = brc.relpath + strlen(brc.pgdata);
 	sprintf(relPathInBackup, "%s/%s", brc.backuppath, secPathptr);
 	copyfiles(relPathInBackup, brc.reltemppath, brc.rfn.relNode);
+}
+
+void
+moveRestoreFile(void)
+{
+	char	postmasterPath[MAXPGPATH] = {0};
+	char	restoreDirName[MAXPGPATH] = {0};
+	char	cmd1[MAXPGPATH] = {0};
+	char	cmd2[MAXPGPATH] = {0};
+
+	sprintf(postmasterPath, "%s/postmaster.pid", brc.pgdata);
+
+	if(fileExist(postmasterPath))
+	{
+		br_elog("database is running, alternative datafile is %s by hand after stop database.", brc.reltemppath);
+		return;
+	}
+
+	sprintf(restoreDirName, "%s/../wtrbk_%u_%s", brc.reltemppath, brc.rfn.relNode, brc.execTime);//reltemppath
+	if(-1 == mkdir(restoreDirName, 0755))
+		br_error("can not create dir %s:%m", restoreDirName);
+
+	sprintf(postmasterPath, "%s/postmaster.pid", brc.pgdata);
+
+	sprintf(cmd1, "mv %s/../%u* %s",brc.reltemppath, brc.rfn.relNode, restoreDirName);
+	if(brc.debugout)
+		br_elog("cmd1=%s", cmd1);
+
+	sprintf(cmd2, "mv %s/* %s/../", brc.reltemppath, brc.reltemppath);
+	if(brc.debugout)
+		br_elog("cmd2=%s", cmd2);
+
+	system(cmd1);
+	system(cmd2);
+	br_elog("whole table recover sucess.");
 }
