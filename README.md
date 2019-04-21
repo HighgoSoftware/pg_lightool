@@ -46,6 +46,7 @@ For blockrecover:
   -l, --log                             whether to write a debug info
   -f, --relnode=spcid/dbid/relfilenode  specify files to repair
   -b, --block=n1[,n2,n3]                specify blocks to repair(10 limit)
+					-1 for whole table recover
   -w, --walpath=walpath                 wallog read from
   -D, --pgdata=datapath                 data dir of database
   -i, --immediate			            does not do a backup for old file
