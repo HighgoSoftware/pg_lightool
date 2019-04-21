@@ -125,6 +125,13 @@ getRecoverBlock(char *block)
 	blockLength = strlen(block);
 	if (0 >= blockLength)
 		goto error_condition;
+
+	if(0 == strcmp("-1", block))
+	{
+		/*全表恢复*/
+		brc.ifwholerel = true;
+		return;
+	}
 	if (',' == block[0] || ',' == block[blockLength - 1])
 		goto error_condition;
 	currStart = block;
@@ -181,7 +188,6 @@ error_condition:
 		printf("Invalid block argument \'%s\'\n", block);
 		error_exit();
 	}
-	
 }
 
 /*函数使用时注意filepath需要是有PGMAXPATH size的空间*/
@@ -199,6 +205,21 @@ getTarBlockPath(char *filepath, char *relpath,int index)
 }
 
 void
+getTarBlockPath_1(char *filepath, uint32 blockno)
+{
+	uint32	relFileNum = 0;
+
+	relFileNum = MAG_BLOCK_FILENO(blockno);
+	
+	Assert(filepath);
+	//fileno = replaceFileBlock(filepath, blknoIneveryFile, page);
+	if(0 == relFileNum)
+		sprintf(filepath, "%s/%u", brc.reltemppath, brc.rfn.relNode);
+	else
+		sprintf(filepath, "%s/%u.%d", brc.reltemppath, brc.rfn.relNode, relFileNum);
+}
+
+void
 error_exit(void)
 {
 	exit(1);
@@ -208,4 +229,14 @@ void
 nomal_exit(void)
 {
 	exit(0);
+}
+
+time_t
+timestamptz_to_timet(TimestampTz t)
+{
+	time_t	result;
+
+	result = (time_t) (t / USECS_PER_SEC +
+						  ((POSTGRES_EPOCH_JDATE - UNIX_EPOCH_JDATE) * SECS_PER_DAY));
+	return result;
 }

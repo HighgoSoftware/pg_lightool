@@ -6,8 +6,10 @@
  */
  #include "backup_utils.h"
  #include "storage/fd.h"
+ #include <time.h>
 
- #define BACKUP_LABEL_FILE		"backup_label"
+#define IsAlnum(c)		(isalnum((unsigned char)(c)))
+#define BACKUP_LABEL_FILE		"backup_label"
 
  static bool
 read_backup_label(XLogRecPtr *RedoStartLSN, bool *backupEndRequired,
@@ -94,4 +96,82 @@ checkBackup(void)
 	
 	read_backup_label(&brc.startlsn, &backupEndRequired, &backupFromStandby);
 	pfree(cfd);
+}
+
+bool
+parse_time(const char *value, time_t *time)
+{
+	size_t		len;
+	char	   *tmp;
+	int			i;
+	struct tm	tm;
+	char		junk[2];
+
+	/* tmp = replace( value, !isalnum, ' ' ) */
+	tmp = malloc(strlen(value) + + 1);
+	len = 0;
+	for (i = 0; value[i]; i++)
+		tmp[len++] = (IsAlnum(value[i]) ? value[i] : ' ');
+	tmp[len] = '\0';
+
+	/* parse for "YYYY-MM-DD HH:MI:SS" */
+	memset(&tm, 0, sizeof(tm));
+	tm.tm_year = 0;		/* tm_year is year - 1900 */
+	tm.tm_mon = 0;		/* tm_mon is 0 - 11 */
+	tm.tm_mday = 1;		/* tm_mday is 1 - 31 */
+	tm.tm_hour = 0;
+	tm.tm_min = 0;
+	tm.tm_sec = 0;
+	i = sscanf(tmp, "%04d %02d %02d %02d %02d %02d%1s",
+		&tm.tm_year, &tm.tm_mon, &tm.tm_mday,
+		&tm.tm_hour, &tm.tm_min, &tm.tm_sec, junk);
+	free(tmp);
+
+	if (i < 1 || 6 < i)
+		return false;
+
+	/* adjust year */
+	if (tm.tm_year < 100)
+		tm.tm_year += 2000 - 1900;
+	else if (tm.tm_year >= 1900)
+		tm.tm_year -= 1900;
+
+	/* adjust month */
+	if (i > 1)
+		tm.tm_mon -= 1;
+
+	/* determine whether Daylight Saving Time is in effect */
+	tm.tm_isdst = -1;
+
+	*time = mktime(&tm);
+
+	return true;
+}
+
+
+void
+checkEndLoc(void)
+{
+	if(brc.endxidstr && brc.endtimestr)
+		br_error("endxid and endtime can not pointed at same time.");
+	if(brc.endxidstr || brc.endtimestr)
+		if(brc.backuppath)
+		{
+			br_error("only whole table recover support argument encxid and endtime");
+		}
+	if(brc.endxidstr)
+	{
+		char	tempbuf[20] = {0};
+
+		sscanf(brc.endxidstr, "%u", &brc.endxid);
+		sprintf(tempbuf, "%u", brc.endxid);
+		if(0 != strcmp(brc.endxidstr, tempbuf))
+			br_error("wrong argument endxid %s", brc.endxidstr);
+	}
+
+	if(brc.endtimestr)
+	{
+		if(!parse_time(brc.endtimestr, &brc.endtime))
+			br_error("wrong argument endtime %s", brc.endtimestr);
+	}
 }

@@ -8,6 +8,8 @@
 #include "catalog/pg_control.h"
 #include "port.h"
 
+static void delete_dir(char *path, bool oridelete);
+static int getTarFileNum(char *path, Oid relnode);
 
 int
 fuzzy_open_file(const char *directory, const char *fname)
@@ -149,11 +151,15 @@ getFirstXlogFile(char *waldir)
 			}
 		}
 	}
-	if(brc.parserPri.startptr > brc.startlsn || brc.parserPri.endptr < brc.startlsn)
-		br_error("can not find lsn %x/%x", (uint32)(brc.startlsn >> 32), (uint32)(brc.startlsn));
+	if(brc.backuppath)
+	{
+		if(brc.parserPri.startptr > brc.startlsn || brc.parserPri.endptr < brc.startlsn)
+			br_error("can not find lsn %x/%x", (uint32)(brc.startlsn >> 32), (uint32)(brc.startlsn));
+		else
+			brc.parserPri.startptr = brc.startlsn;
+	}
 	if (brc.debugout)
 		br_elog("LOG:parser range:0x%x~0x%x\n", (uint32)brc.parserPri.startptr, (uint32)brc.parserPri.endptr);
-	brc.parserPri.startptr = brc.startlsn;
 }
 
 ControlFileData *
@@ -283,16 +289,206 @@ replaceFileBlock(char* filePath, uint32 blknoIneveryFile, Page page)
 
 	fp = fopen(filePath,"rb+");
 	if (!fp)
-		br_error("Fail to open file \"%s\"", filePath);
-
-	br_elog("    BlockRecover:file->%s,page:%u",filePath,blknoIneveryFile);
+	{
+		if(2 == errno)
+		{
+			fp = fopen(filePath,"wb");
+		}
+		if(!fp)
+			br_error("Fail to open file \"%s\" to write", filePath);
+	}
+	if(!brc.ifwholerel)
+		br_elog("    BlockRecover:file->%s,page:%u",filePath,blknoIneveryFile);
 	fseek(fp, 0, SEEK_SET);
-	fseek(fp, blknoIneveryFile * BLCKSZ, SEEK_CUR);
+	if(-1 == fseek(fp, blknoIneveryFile * BLCKSZ, SEEK_CUR))
+		br_error("fail to fseek to %ld of file %s", (int64)blknoIneveryFile * BLCKSZ, filePath);
 	fwrite(page, BLCKSZ, 1, fp);
-	 
-
 	fclose(fp);
-	
 }
 
+/*
+* 递归删除目录
+*/
+static void
+delete_dir(char *path, bool oridelete)
+{
+	DIR 			*dir = NULL;
+	struct dirent 	*ent = NULL;
+	char			subPath[MAXPGPATH] = {0};
 
+	Assert(path);
+	Assert(dirExist(path));
+
+	dir = opendir(path);
+	while(NULL != (ent = readdir(dir)))
+	{
+		sprintf(subPath, "%s/%s", path, ent->d_name);
+		if(DT_DIR == ent->d_type)
+		{
+			if(0 == strcmp(ent->d_name, ".") || 0 == strcmp(ent->d_name, ".."))
+			{
+				continue;
+			}
+			else
+			{
+				delete_dir(subPath, true);
+			}
+		}
+		else if(DT_REG == ent->d_type)
+		{
+			if(-1 == remove(subPath))
+			{
+				br_error("can not remove file %s", subPath);
+			}
+			if(brc.debugout)
+			{
+				br_elog("remove file %s", subPath);
+			}
+		}
+	}
+	if(oridelete)
+	{
+		if(-1 == remove(path))
+		{
+			br_error("can not remove dir %s", path);
+		}
+		if(brc.debugout)
+		{
+			br_elog("remove dir %s", path);
+		}
+	}
+	closedir(dir);
+}
+
+static int
+getTarFileNum(char *path, Oid relnode)
+{
+	DIR		*dir = NULL;
+	struct dirent *ent = NULL;
+	char	relNodeStr_o[30] = {0};
+	char	relNodeStr[30] = {0};
+	int		countNum = 0;
+
+	Assert(path);
+	Assert(dirExist(path));
+
+	sprintf(relNodeStr, "%u.", relnode);
+	sprintf(relNodeStr_o, "%u", relnode);
+	dir = opendir(path);
+	while(NULL != (ent = readdir(dir)))
+	{
+		if(ent->d_type == DT_REG)
+		{
+			if(strstr(ent->d_name, relNodeStr) || 0 == strcmp(ent->d_name,relNodeStr_o))
+			{
+				br_elog("%s, %s", relNodeStr, ent->d_name);
+				countNum++;
+			}
+		}
+	}
+	if(brc.debugout)
+		br_elog("[getTarFileNum]countNum=%d",countNum);
+	return countNum;
+}
+
+static void
+copyfile(char *orifile, char *tarfile)
+{
+	FILE	*in = NULL;
+	FILE	*out = NULL;
+	size_t	filesize = 0;
+	char	page[BLCKSZ] = {0};
+	size_t	readCount = 0, writeCount = 0;
+
+	Assert(orifile && tarfile && fileExist(orifile) && !fileExist(tarfile));
+	in = fopen(orifile, "rb");
+	if(!in)
+		br_error("can not open file %s to read:%m", orifile);
+	out = fopen(tarfile, "wb");
+	if(!out)
+		br_error("can not open file %s to write:%m", tarfile);
+
+	filesize = getfileSize(orifile);
+	Assert(filesize % BLCKSZ);
+	while(true)
+	{
+		memset(page, 0, BLCKSZ);
+		readCount = fread(page, 1, BLCKSZ,in);
+		if(0 == readCount)
+			break;
+		else if(BLCKSZ != readCount)
+			br_error("read wrong size %ld", readCount);
+		
+		writeCount = fwrite(page, 1, BLCKSZ, out);
+		if(BLCKSZ != writeCount)
+			br_error("write wrong size %ld", readCount);
+	}
+	fclose(in);
+	fclose(out);
+	if(brc.debugout)
+		br_elog("[copyfile]copy file %s size:%ld", tarfile, filesize);
+}
+
+static void
+copyfiles(char *oridir, char *tardir, Oid relnode)
+{
+	int 	filenum = 0;
+	int		loop = 0;
+//	char	relNodeStr[30] = {0};
+	char	loopfile_or[MAXPGPATH] = {0};
+	char	loopfile_ta[MAXPGPATH] = {0};
+	
+
+	Assert(oridir && tardir && dirExist(oridir) && dirExist(tardir));
+
+	filenum = getTarFileNum(oridir, relnode);
+	for(loop = 0; loop < filenum; loop++)
+	{
+		if(0 == loop)
+		{
+			sprintf(loopfile_or, "%s/%u", oridir, relnode);
+			sprintf(loopfile_ta, "%s/%u", tardir, relnode);
+		}
+		else
+		{
+			sprintf(loopfile_or, "%s/%u.%d", oridir, relnode, loop);
+			sprintf(loopfile_ta, "%s/%u.%d", tardir, relnode, loop);
+		}
+		copyfile(loopfile_or, loopfile_ta);
+	}
+}
+
+/*
+* 创建临时目录
+* 从备份集拷贝目标表的备份到临时目录
+*/
+void
+copyBackupRel(void)
+{
+	char	*secPathptr = NULL;
+	char	relPathInBackup[MAXPGPATH] = {0};
+	char	tempdir[MAXPGPATH] = {0};
+
+
+	sprintf(tempdir, "%s%u", WHOLE_RELATION_RECOVER_TEMPDIR, brc.rfn.relNode);
+	sprintf(brc.reltemppath, "%s/%s", brc.relpath, tempdir);
+
+	/*保证备份文件的拷贝目标路径存在且为空。*/
+	if(dirExist(brc.reltemppath))
+	{
+		if(brc.debugout)
+			br_elog("[copyBackupRel]delete path %s", brc.reltemppath);
+		delete_dir(brc.reltemppath, false); 
+	}
+	else
+	{
+		if(-1 == mkdir(brc.reltemppath, 0755))
+			br_error("can not create dir %s:%m", brc.reltemppath);
+	}
+
+	if(!brc.backuppath)
+		return;
+	secPathptr = brc.relpath + strlen(brc.pgdata);
+	sprintf(relPathInBackup, "%s/%s", brc.backuppath, secPathptr);
+	copyfiles(relPathInBackup, brc.reltemppath, brc.rfn.relNode);
+}

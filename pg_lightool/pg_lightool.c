@@ -33,6 +33,8 @@ static struct option long_options[] = {
 	{"grade", required_argument, NULL, 'g'},
 	{"pgdata", required_argument, NULL, 'D'},
 	{"small", required_argument, NULL, 's'},
+	{"endtime", required_argument, NULL, 'e'},
+	{"endxid", required_argument, NULL, 'x'},
 	{NULL, 0, NULL, 0}
 };
 		
@@ -150,12 +152,16 @@ blockRecoverArguCheck(void)
 	}
 	/*blockstr check*/
 	getRecoverBlock(brc.blockstr);
-
+	
 	/*pgdata check*/
 	checkPgdata();
 
 	/*备份集timeline检查*/
 	checkBackup();
+
+	/*截止位置处理*/
+	checkEndLoc();
+
 }
 
 static void
@@ -250,7 +256,7 @@ arguMentParser(int argc, char *argv[])
 	optind = 1;
 	while (optind < argc)
 	{
-		while (-1 != (c = getopt_long(argc, argv, "?Vlf:b:w:D:ip:dg:s:r:",long_options, &option_index)))
+		while (-1 != (c = getopt_long(argc, argv, "?Vlf:b:w:D:ip:dg:s:r:e:x:",long_options, &option_index)))
 		{
 			switch (c)
 			{
@@ -299,6 +305,7 @@ arguMentParser(int argc, char *argv[])
 					break;
 				case 'x':
 					brc.endxidstr = (char*)strdup(optarg);
+					break;
 				default:
 					do_advice_lightool();
 					error_exit();
@@ -409,6 +416,11 @@ mentalRecord(void)
 		brc.parserPri.first_record = InvalidXLogRecPtr;
 		if (CUR_KIND_BLOCKRECOVER == brc.curkind)
 			recoverRecord(brc.xlogreader);
+		if(brc.reachend)
+		{
+			br_elog("reach end that you pointed");
+			break;
+		}
 	}
 }
 
@@ -462,15 +474,26 @@ do_blockrecover(void)
 
 	blockRecoverArguCheck();
 	getRelpath();
-	fillPageArray();
+	if(brc.ifwholerel)
+	{
+		copyBackupRel();
+	}
+	else
+		fillPageArray();
 	if (brc.debugout)
 	{
-		br_elog("LOG:datafile is %u/%u/%u", brc.rfn.dbNode, brc.rfn.relNode, brc.rfn.spcNode);
+		br_elog("LOG:datafile is %u/%u/%u", brc.rfn.spcNode, brc.rfn.dbNode, brc.rfn.relNode);
 		br_elog("LOG:walpath is %s", brc.walpath);
-		br_elog("LOG:redo start LSN is %x/%x", (uint32)(brc.startlsn >> 32), (uint32)brc.startlsn);
-		br_elog("Recover blocks is:");
-		for (; loop < brc.rbNum; loop++)
-			printf("%u ", brc.recoverBlock[loop]);
+		if(brc.ifwholerel)
+		{
+			br_elog("LOG:redo start LSN is %x/%x", (uint32)(brc.startlsn >> 32), (uint32)brc.startlsn);
+		}
+		else
+		{
+			br_elog("Recover blocks is:");
+			for (; loop < brc.rbNum; loop++)
+				printf("%u ", brc.recoverBlock[loop]);
+		}
 		printf("\n");
 	}
 

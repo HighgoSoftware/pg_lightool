@@ -13,6 +13,9 @@
 #include "access/xlogrecord.h"
 #include "access/heapam_xlog.h"
 #include "access/htup_details.h"
+#include "postgres.h"
+#include "access/transam.h"
+#include "access/xact.h"
 
 
 #define pageSetLSN(page, lsn) \
@@ -34,6 +37,7 @@ static void recoverImageFromRecord(XLogReaderState *record, BlockNumber blknum,i
 static void fix_infomask_from_infobits(uint8 infobits, uint16 *infomask, uint16 *infomask2);
 static void heap_recoverUpdateRecord(XLogReaderState *record, BlockNumber blknum, bool hot_update);
 static Page pageInit(Size specialSize);
+static void PageInit_1(Page page, Size pageSize, Size specialSize);
 static void heap_recoverConfirmRecord(XLogReaderState *record, BlockNumber blknum);
 static void heap_recoverLockRecord(XLogReaderState *record, BlockNumber blknum);
 static void heap_recoverInplaceRecord(XLogReaderState *record, BlockNumber blknum);
@@ -61,8 +65,11 @@ static void getHeapInsertRecordTuple(XLogReaderState *record, HeapTupleHeader ht
 						uint32 *newlen, xl_heap_insert	*xlrec);
 /*static bool getHeapDeleteRecordTuple(XLogReaderState *record, HeapTupleHeader *htup_old, BlockNumber blknum, 
 						uint32 *newlen, xl_heap_delete	*xlrec);*/
-
-
+static void getImageFromRecord(XLogReaderState *record, char *pagebuf,int block_id);
+void mentalXactRecord_abort(XLogReaderState *record);
+void mentalXactRecord_commit(XLogReaderState *record);
+void ParseAbortRecord_1(uint8 info, xl_xact_abort *xlrec, xl_xact_parsed_abort *parsed);
+void ParseCommitRecord_1(uint8 info, xl_xact_commit *xlrec, xl_xact_parsed_commit *parsed);
 
 static int
 itemoffcompare(const void *itemidp1, const void *itemidp2)
@@ -239,26 +246,6 @@ fix_infomask_from_infobits(uint8 infobits, uint16 *infomask, uint16 *infomask2)
 		*infomask2 |= HEAP_KEYS_UPDATED;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 static bool
 xLogRecGetBlockTag(XLogReaderState *record, uint8 block_id,
 				   RelFileNode *rnode, ForkNumber *forknum, BlockNumber *blknum)
@@ -278,6 +265,253 @@ xLogRecGetBlockTag(XLogReaderState *record, uint8 block_id,
 	return true;
 }
 
+
+static void
+recordStoreImage(XLogReaderState *record, BlockNumber blcknum)
+{
+	uint8			block_id = 0;
+	DecodedBkpBlock *bkpb = NULL;
+	char			page[BLCKSZ] = {0};
+	
+	for(block_id = 0; block_id <= XLR_MAX_BLOCK_ID; block_id++)
+	{
+		uint32		blknoIneveryFile = 0;
+	//	uint32		fileno = 0;
+		char		tarFilePath[MAXPGPATH] = {0};
+
+		bkpb = &record->blocks[block_id];
+		if(!bkpb->in_use)
+			return;
+		if(!bkpb->has_image)
+			continue;
+		memset(page, 0, BLCKSZ);
+		getImageFromRecord(record, page, block_id);
+		blknoIneveryFile = MAG_BLOCK_BLKNO(bkpb->blkno);
+		getTarBlockPath_1(tarFilePath, bkpb->blkno);
+		replaceFileBlock(tarFilePath, blknoIneveryFile, page);
+	}
+}
+
+void
+ParseCommitRecord_1(uint8 info, xl_xact_commit *xlrec, xl_xact_parsed_commit *parsed)
+{
+	char	   *data = ((char *) xlrec) + MinSizeOfXactCommit;
+
+	memset(parsed, 0, sizeof(*parsed));
+
+	parsed->xinfo = 0;			/* default, if no XLOG_XACT_HAS_INFO is
+								 * present */
+
+	parsed->xact_time = xlrec->xact_time;
+
+	if (info & XLOG_XACT_HAS_INFO)
+	{
+		xl_xact_xinfo *xl_xinfo = (xl_xact_xinfo *) data;
+
+		parsed->xinfo = xl_xinfo->xinfo;
+
+		data += sizeof(xl_xact_xinfo);
+	}
+
+	if (parsed->xinfo & XACT_XINFO_HAS_DBINFO)
+	{
+		xl_xact_dbinfo *xl_dbinfo = (xl_xact_dbinfo *) data;
+
+		parsed->dbId = xl_dbinfo->dbId;
+		parsed->tsId = xl_dbinfo->tsId;
+
+		data += sizeof(xl_xact_dbinfo);
+	}
+
+	if (parsed->xinfo & XACT_XINFO_HAS_SUBXACTS)
+	{
+		xl_xact_subxacts *xl_subxacts = (xl_xact_subxacts *) data;
+
+		parsed->nsubxacts = xl_subxacts->nsubxacts;
+		parsed->subxacts = xl_subxacts->subxacts;
+
+		data += MinSizeOfXactSubxacts;
+		data += parsed->nsubxacts * sizeof(TransactionId);
+	}
+
+	if (parsed->xinfo & XACT_XINFO_HAS_RELFILENODES)
+	{
+		xl_xact_relfilenodes *xl_relfilenodes = (xl_xact_relfilenodes *) data;
+
+		parsed->nrels = xl_relfilenodes->nrels;
+		parsed->xnodes = xl_relfilenodes->xnodes;
+
+		data += MinSizeOfXactRelfilenodes;
+		data += xl_relfilenodes->nrels * sizeof(RelFileNode);
+	}
+
+	if (parsed->xinfo & XACT_XINFO_HAS_INVALS)
+	{
+		xl_xact_invals *xl_invals = (xl_xact_invals *) data;
+
+		parsed->nmsgs = xl_invals->nmsgs;
+		parsed->msgs = xl_invals->msgs;
+
+		data += MinSizeOfXactInvals;
+		data += xl_invals->nmsgs * sizeof(SharedInvalidationMessage);
+	}
+
+	if (parsed->xinfo & XACT_XINFO_HAS_TWOPHASE)
+	{
+		xl_xact_twophase *xl_twophase = (xl_xact_twophase *) data;
+
+		parsed->twophase_xid = xl_twophase->xid;
+
+		data += sizeof(xl_xact_twophase);
+	}
+
+	if (parsed->xinfo & XACT_XINFO_HAS_ORIGIN)
+	{
+		xl_xact_origin xl_origin;
+
+		/* we're only guaranteed 4 byte alignment, so copy onto stack */
+		memcpy(&xl_origin, data, sizeof(xl_origin));
+
+		parsed->origin_lsn = xl_origin.origin_lsn;
+		parsed->origin_timestamp = xl_origin.origin_timestamp;
+
+		data += sizeof(xl_xact_origin);
+	}
+}
+
+void
+ParseAbortRecord_1(uint8 info, xl_xact_abort *xlrec, xl_xact_parsed_abort *parsed)
+{
+	char	   *data = ((char *) xlrec) + MinSizeOfXactAbort;
+
+	memset(parsed, 0, sizeof(*parsed));
+
+	parsed->xinfo = 0;			/* default, if no XLOG_XACT_HAS_INFO is
+								 * present */
+
+	parsed->xact_time = xlrec->xact_time;
+
+	if (info & XLOG_XACT_HAS_INFO)
+	{
+		xl_xact_xinfo *xl_xinfo = (xl_xact_xinfo *) data;
+
+		parsed->xinfo = xl_xinfo->xinfo;
+
+		data += sizeof(xl_xact_xinfo);
+	}
+
+	if (parsed->xinfo & XACT_XINFO_HAS_SUBXACTS)
+	{
+		xl_xact_subxacts *xl_subxacts = (xl_xact_subxacts *) data;
+
+		parsed->nsubxacts = xl_subxacts->nsubxacts;
+		parsed->subxacts = xl_subxacts->subxacts;
+
+		data += MinSizeOfXactSubxacts;
+		data += parsed->nsubxacts * sizeof(TransactionId);
+	}
+
+	if (parsed->xinfo & XACT_XINFO_HAS_RELFILENODES)
+	{
+		xl_xact_relfilenodes *xl_relfilenodes = (xl_xact_relfilenodes *) data;
+
+		parsed->nrels = xl_relfilenodes->nrels;
+		parsed->xnodes = xl_relfilenodes->xnodes;
+
+		data += MinSizeOfXactRelfilenodes;
+		data += xl_relfilenodes->nrels * sizeof(RelFileNode);
+	}
+
+	if (parsed->xinfo & XACT_XINFO_HAS_TWOPHASE)
+	{
+		xl_xact_twophase *xl_twophase = (xl_xact_twophase *) data;
+
+		parsed->twophase_xid = xl_twophase->xid;
+
+		data += sizeof(xl_xact_twophase);
+	}
+}
+
+void
+mentalXactRecord_commit(XLogReaderState *record)
+{
+	xl_xact_commit *xlrec = (xl_xact_commit *) XLogRecGetData(record);
+	xl_xact_parsed_commit parsed;
+
+	ParseCommitRecord_1(XLogRecGetInfo(record), xlrec, &parsed);
+	if(brc.endtimestr)
+	{
+		time_t recordtime = 0;
+		recordtime = timestamptz_to_timet(parsed.xact_time);
+		if(recordtime >= brc.endtime)
+			brc.reachend = true;
+	}
+	else if(brc.endxidstr)
+	{
+		uint32	xid = 0;
+		int		loop = 0;
+		if (!TransactionIdIsValid(parsed.twophase_xid))
+			xid = XLogRecGetXid(record);
+		else
+			xid = parsed.twophase_xid;
+		/*if(brc.debugout)
+		{
+			br_elog("commit xid=%u,brc.endxid=%u",xid, brc.endxid);
+		}*/
+		if(xid == brc.endxid)
+			brc.reachend = true;
+		for(; loop < parsed.nsubxacts; loop++)
+		{
+			if(xid == parsed.subxacts[loop])
+			{
+				brc.reachend = true;
+				break;
+			}
+		}
+	}
+}
+
+
+void
+mentalXactRecord_abort(XLogReaderState *record)
+{
+	xl_xact_abort *xlrec = (xl_xact_abort *) XLogRecGetData(record);
+	xl_xact_parsed_abort parsed;
+
+	ParseAbortRecord_1(XLogRecGetInfo(record), xlrec, &parsed);
+	if(brc.endtimestr)
+	{
+		time_t recordtime = 0;
+		recordtime = timestamptz_to_timet(parsed.xact_time);
+		if(recordtime >= brc.endtime)
+			brc.reachend = true;
+	}
+	else if(brc.endxidstr)
+	{
+		uint32	xid = 0;
+		int		loop = 0;
+		if (!TransactionIdIsValid(parsed.twophase_xid))
+			xid = XLogRecGetXid(record);
+		else
+			xid = parsed.twophase_xid;
+		/*if(brc.debugout)
+		{
+			br_elog("abord xid=%u,brc.endxid=%u",xid, brc.endxid);
+		}*/
+		if(xid == brc.endxid)
+			brc.reachend = true;
+		for(; loop < parsed.nsubxacts; loop++)
+		{
+			if(xid == parsed.subxacts[loop])
+			{
+				brc.reachend = true;
+				break;
+			}
+		}
+	}
+}
+
+
 void
 recoverRecord(XLogReaderState *record)
 {
@@ -295,10 +529,22 @@ recoverRecord(XLogReaderState *record)
 	xLogRecGetBlockTag(record, 0, &rfnode, NULL, &blknum);
 	if (0 == rfnode.spcNode)
 		rfnode.spcNode = PG_DEFAULT_TBS_OID;
-	if (brc.rfn.relNode != rfnode.relNode)
+	//剔除所有的非目标表的wal记录(不包括事务record)
+	if (brc.rfn.relNode != rfnode.relNode && RM_XACT_ID != rmid)
 		return;
+	if(brc.ifwholerel && RM_XACT_ID != rmid)
+	{
+		//把record中的image覆盖到拷贝出的目标表数据
+		recordStoreImage(record, blknum);
+	}
+	if(brc.debugout  && RM_XACT_ID != rmid)
+	{
+		br_elog("xid:%u, rmid=%d", XLogRecGetXid(record), rmid);
+	}
 	if (RM_HEAP_ID == rmid)
 	{
+		if(brc.debugout)
+			br_elog("[RM_HEAP_ID == rmid]info=%x", info);
 		if (XLOG_HEAP_INSERT == info)
 		{
 			heap_recoverInsertRecord(record, blknum);
@@ -349,6 +595,28 @@ recoverRecord(XLogReaderState *record)
 		else if (XLOG_HEAP2_MULTI_INSERT == info)
 		{
 			heep2_recoverMutiinsertRecord(record, blknum);
+		}
+	}
+	else if(RM_XACT_ID == rmid)
+	{
+		if(XLOG_XACT_COMMIT == info)
+		{
+			mentalXactRecord_commit(record);
+		}
+		else if(XLOG_XACT_ABORT == info)
+		{
+			mentalXactRecord_abort(record);
+		}
+	}
+	if(brc.ifwholerel)
+	{
+		char filepath[MAXPGPATH] = {0};
+
+		if(brc.getpage)
+		{
+			getTarBlockPath_1(filepath, blknum);
+			replaceFileBlock(filepath, MAG_BLOCK_BLKNO(blknum), brc.page);
+			brc.getpage = false;
 		}
 	}
 }
@@ -487,26 +755,40 @@ pageAddItemExtended(Page page,Item item,Size size,OffsetNumber offsetNumber)
 
 
 static Page
-getTargetPage(int *tarIndex, bool *findInArray,BlockNumber blknum)
+getTargetPage(int *tarIndex, bool *findInArray,BlockNumber blcknum)
 {
 	int				loop = 0;
 	Page			targetPage = NULL;
+	char			filepath[BLCKSZ] = {0};
 	
-	for (loop = 0; loop < brc.rbNum; loop++)
-	{	
-		if (brc.recoverBlock[loop] == blknum)
-		{
-			targetPage = brc.pageArray[loop];
-			*findInArray = true;
-			if (!targetPage)
-			{
-				brc.pageArray[loop] = pageInit(0);
-				targetPage = brc.pageArray[loop];
-			}
-			break;
-		}
+	if(brc.ifwholerel)
+	{
+		getTarBlockPath_1(filepath, blcknum);
+		if(brc.debugout)
+			br_elog("[getTargetPage]filepath=%s",filepath);
+		readBackupPage(&targetPage, filepath, MAG_BLOCK_BLKNO(blcknum));
+		memcpy(brc.page, targetPage, BLCKSZ);
+		targetPage = brc.page;
+		brc.getpage = true;
 	}
-	*tarIndex = loop;
+	else
+	{
+		for (loop = 0; loop < brc.rbNum; loop++)
+		{	
+			if (brc.recoverBlock[loop] == blcknum)
+			{
+				targetPage = brc.pageArray[loop];
+				*findInArray = true;
+				if (!targetPage)
+				{
+					brc.pageArray[loop] = pageInit(0);
+					targetPage = brc.pageArray[loop];
+				}
+				break;
+			}
+		}
+		*tarIndex = loop;
+	}
 	return targetPage;
 }
 
@@ -731,7 +1013,16 @@ heep2_recoverMutiinsertRecord(XLogReaderState *record, BlockNumber blknum)
 	
 	if (XLogRecBlockImageApply(record, 0))
 		image = true;
-	targetPage = getTargetPage(&tarIndex, &findInArray, blknum);
+	if((XLOG_HEAP_INIT_PAGE & XLogRecGetInfo(record)))
+	{
+		targetPage = brc.page;
+		PageInit_1(targetPage, BLCKSZ, 0);
+		brc.getpage = true;
+	}
+	else
+	{
+		targetPage = getTargetPage(&tarIndex, &findInArray, blknum);
+	}
 	if (!findInArray)
 		/* Get a record that we does not care */
 		return;
@@ -959,8 +1250,6 @@ heep2_recoverLockRecord(XLogReaderState *record, BlockNumber blknum)
 
 }
 
-
-
 static void
 heap_recoverInsertRecord(XLogReaderState *record, BlockNumber blknum)
 {
@@ -979,16 +1268,36 @@ heap_recoverInsertRecord(XLogReaderState *record, BlockNumber blknum)
 		char		data[MaxHeapTupleSize];
 	}tbuf;
 	
-	
 	if (XLogRecBlockImageApply(record, 0))
 		image = true;
-	targetPage = getTargetPage(&tarIndex, &findInArray, blknum);
-	if (!findInArray)
-		/* Get a record that we does not care */
+
+	//单表解析且有全页写，那么忽略此record
+	if(brc.ifwholerel && image)
+	{
+		if(brc.debugout)
+			br_elog("[heap_recoverInsertRecord]return");
 		return;
+	}
+	if(brc.ifwholerel && (XLOG_HEAP_INIT_PAGE & XLogRecGetInfo(record)))
+	{
+		targetPage = brc.page;
+		PageInit_1(targetPage, BLCKSZ, 0);
+		brc.getpage = true;
+	}
+	else
+	{
+		targetPage = getTargetPage(&tarIndex, &findInArray, blknum);
+		if (!findInArray)
+			/* Get a record that we does not care */
+			return;
+	}
 	
 	if (image)
 	{
+		if(brc.debugout)
+		{
+			br_elog("[insert]recoverImageFromRecord");
+		}
 		recoverImageFromRecord(record,blknum,tarIndex,0);
 	}
 	else
@@ -1001,6 +1310,10 @@ heap_recoverInsertRecord(XLogReaderState *record, BlockNumber blknum)
 		htup = &tbuf.hdr;
 		xlrec = (xl_heap_insert *) XLogRecGetData(record);
 		getHeapInsertRecordTuple(record, htup, blknum, &newlen, xlrec);
+		if(brc.debugout)
+		{
+			br_elog("[insert]additem %d,blknum=%u",xlrec->offnum, blknum);
+		}
 		pageAddResult = pageAddItemExtended(targetPage, (Item) htup, newlen, xlrec->offnum);
 		pageSetLSN(targetPage, lsn);
 		if (xlrec->flags & XLH_INSERT_ALL_VISIBLE_CLEARED)
@@ -1037,6 +1350,10 @@ heap_recoverDeleteRecord(XLogReaderState *record, BlockNumber blknum)
 	
 	if (image)
 	{
+		if(brc.debugout)
+		{
+			br_elog("[delete]recoverImageFromRecord");
+		}
 		recoverImageFromRecord(record,blknum,tarIndex,0);
 	}
 	else
@@ -1048,6 +1365,10 @@ heap_recoverDeleteRecord(XLogReaderState *record, BlockNumber blknum)
 		}
 		xlrec = (xl_heap_delete *) XLogRecGetData(record);
 		Assert(targetPage);
+		if(brc.debugout)
+		{
+			br_elog("[delete]delete item %d", xlrec->offnum);
+		}
 		ItemPointerSetBlockNumber(&target_tid, blknum);
 		ItemPointerSetOffsetNumber(&target_tid, xlrec->offnum);
 		if (PageGetMaxOffsetNumber(targetPage) >= xlrec->offnum)
@@ -1167,12 +1488,28 @@ heap_recoverUpdateRecord(XLogReaderState *record, BlockNumber blknum, bool hot_u
 		pageSetLSN(targetPageOld, lsn);
 		if (xlrec->flags & XLH_INSERT_ALL_VISIBLE_CLEARED)
 			PageClearAllVisible(targetPageOld);
+		if(brc.ifwholerel)
+		{
+			char filepath[MAXPGPATH] = {0};
+
+			getTarBlockPath_1(filepath, oldblk);
+			replaceFileBlock(filepath, MAG_BLOCK_BLKNO(oldblk), targetPageOld);
+		}
 	}
 
 	findInArray = false;
 	if (XLogRecBlockImageApply(record, 0))
 		newimage = true;
-	targetPageNew = getTargetPage(&tarIndex, &findInArray, newblk);
+	if(brc.ifwholerel  && (XLOG_HEAP_INIT_PAGE & XLogRecGetInfo(record)))
+	{
+		targetPageNew = brc.page;
+		PageInit_1(targetPageNew, BLCKSZ, 0);
+		brc.getpage = true;
+	}
+	else
+	{
+		targetPageNew = getTargetPage(&tarIndex, &findInArray, newblk);
+	}
 	if (!findInArray)
 			/* Get a record that we does not care */
 			return;
@@ -1431,6 +1768,48 @@ heap_recoverLockRecord(XLogReaderState *record, BlockNumber blknum)
 	}
 }
 
+static void
+getImageFromRecord(XLogReaderState *record, char *pagebuf,int block_id)
+{
+	DecodedBkpBlock *bkpb = NULL;
+	char	   *ptr = NULL;
+	char		tmp[BLCKSZ];
+	Page		page;
+	
+	Assert(XLogRecHasBlockImage(record, block_id));
+
+	bkpb = &record->blocks[block_id];
+	ptr = bkpb->bkp_image;
+	if (bkpb->bimg_info & BKPIMAGE_IS_COMPRESSED)
+	{
+		/* If a backup block image is compressed, decompress it */
+		if (pglz_decompress(ptr, bkpb->bimg_len, tmp,
+							BLCKSZ - bkpb->hole_length) < 0)
+		{
+			br_error("invalid compressed image at %X/%X, block %d",
+								  (uint32) (record->ReadRecPtr >> 32),
+								  (uint32) record->ReadRecPtr,block_id);
+		}
+		ptr = tmp;
+	}
+
+	page = pagebuf;
+	Assert(page);
+	if (bkpb->hole_length == 0)
+	{
+		memcpy(page, ptr, BLCKSZ);
+	}
+	else
+	{
+		memcpy(page, ptr, bkpb->hole_offset);
+		/* must zero-fill the hole */
+		MemSet(page + bkpb->hole_offset, 0, bkpb->hole_length);
+		memcpy(page + (bkpb->hole_offset + bkpb->hole_length),
+			   ptr + bkpb->hole_offset,
+			   BLCKSZ - (bkpb->hole_offset + bkpb->hole_length));
+	}
+}
+
 
 static void
 recoverImageFromRecord(XLogReaderState *record, BlockNumber blknum,int pageIndex,int block_id)
@@ -1440,6 +1819,8 @@ recoverImageFromRecord(XLogReaderState *record, BlockNumber blknum,int pageIndex
 	char		tmp[BLCKSZ];
 	Page		page;
 	
+	if(brc.ifwholerel)
+			return;
 	Assert(XLogRecHasBlockImage(record, block_id));
 
 	bkpb = &record->blocks[block_id];
@@ -1501,6 +1882,27 @@ pageInit(Size specialSize)
 	/* p->pd_prune_xid = InvalidTransactionId;		done by above MemSet */
 }
 
+static void
+PageInit_1(Page page, Size pageSize, Size specialSize)
+{
+	PageHeader	p = (PageHeader) page;
+
+	specialSize = MAXALIGN(specialSize);
+
+	Assert(pageSize == BLCKSZ);
+	Assert(pageSize > specialSize + SizeOfPageHeaderData);
+
+	/* Make sure all fields of page are zero, as well as unused space */
+	MemSet(p, 0, pageSize);
+
+	p->pd_flags = 0;
+	p->pd_lower = SizeOfPageHeaderData;
+	p->pd_upper = pageSize - specialSize;
+	p->pd_special = pageSize - specialSize;
+	PageSetPageSizeAndVersion(page, pageSize, PG_PAGE_LAYOUT_VERSION);
+	/* p->pd_prune_xid = InvalidTransactionId;		done by above MemSet */
+}
+
 void
 readBackupPage(Page *page, char *filepath, uint32 block)
 {
@@ -1536,7 +1938,6 @@ readBackupPage(Page *page, char *filepath, uint32 block)
 		br_elog("Get backup page:%u", block);
 	fclose(fp);
 }
-
 
 void
 fillPageArray(void)
