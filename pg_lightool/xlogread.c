@@ -1285,6 +1285,8 @@ XLogParserXLogRead(const char *directory, TimeLineID timeline_id,
 			for (tries = 0; tries < 10; tries++)
 			{
 				sendFile = fuzzy_open_file(directory, fname);
+				if(brc.debugout)	
+					br_elog("open wal file %s", fname);
 				if (sendFile >= 0)
 					break;
 				if (errno == ENOENT)

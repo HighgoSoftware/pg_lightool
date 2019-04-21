@@ -1023,7 +1023,7 @@ heep2_recoverMutiinsertRecord(XLogReaderState *record, BlockNumber blknum)
 	{
 		targetPage = getTargetPage(&tarIndex, &findInArray, blknum);
 	}
-	if (!findInArray)
+	if (!brc.getpage && !findInArray)
 		/* Get a record that we does not care */
 		return;
 	if (image)
@@ -1100,7 +1100,7 @@ heep2_recoverCleanRecord(XLogReaderState *record, BlockNumber blknum)
 	if (XLogRecBlockImageApply(record, 0))
 		image = true;
 	targetPage = getTargetPage(&tarIndex, &findInArray, blknum);
-	if (!findInArray)
+	if (!brc.getpage && !findInArray)
 		/* Get a record that we does not care */
 		return;
 	if (image)
@@ -1148,7 +1148,7 @@ heep2_recoverFreezePageRecord(XLogReaderState *record, BlockNumber blknum)
 	if (XLogRecBlockImageApply(record, 0))
 		image = true;
 	targetPage = getTargetPage(&tarIndex, &findInArray, blknum);
-	if (!findInArray)
+	if (!brc.getpage && !findInArray)
 		/* Get a record that we does not care */
 		return;
 	if (image)
@@ -1191,7 +1191,7 @@ heep2_recoverVisibleRecord(XLogReaderState *record, BlockNumber blknum)
 	if (XLogRecBlockImageApply(record, 0))
 		image = true;
 	targetPage = getTargetPage(&tarIndex, &findInArray, blknum);
-	if (!findInArray)
+	if (!brc.getpage && !findInArray)
 		/* Get a record that we does not care */
 		return;
 	if (image)
@@ -1215,7 +1215,7 @@ heep2_recoverLockRecord(XLogReaderState *record, BlockNumber blknum)
 	if (XLogRecBlockImageApply(record, 0))
 		image = true;
 	targetPage = getTargetPage(&tarIndex, &findInArray, blknum);
-	if (!findInArray)
+	if (!brc.getpage && !findInArray)
 		/* Get a record that we does not care */
 		return;
 	if (image)
@@ -1287,7 +1287,7 @@ heap_recoverInsertRecord(XLogReaderState *record, BlockNumber blknum)
 	else
 	{
 		targetPage = getTargetPage(&tarIndex, &findInArray, blknum);
-		if (!findInArray)
+		if (!brc.getpage && !findInArray)
 			/* Get a record that we does not care */
 			return;
 	}
@@ -1344,7 +1344,7 @@ heap_recoverDeleteRecord(XLogReaderState *record, BlockNumber blknum)
 	if (XLogRecBlockImageApply(record, 0))
 		image = true;
 	targetPage = getTargetPage(&tarIndex, &findInArray, blknum);
-	if (!findInArray)
+	if (!brc.getpage && !findInArray)
 		/* Get a record that we does not care */
 		return;
 	
@@ -1441,7 +1441,7 @@ heap_recoverUpdateRecord(XLogReaderState *record, BlockNumber blknum, bool hot_u
 		oldimage = true;
 	targetPageOld = getTargetPage(&tarIndex, &findInArray, oldblk);
 	
-	if (!findInArray)
+	if (!brc.getpage && !findInArray)
 		/* 
 		* Get a record that we does not care,but we can not return here,
 		* we should mental the new partial of the record.
@@ -1510,7 +1510,7 @@ heap_recoverUpdateRecord(XLogReaderState *record, BlockNumber blknum, bool hot_u
 	{
 		targetPageNew = getTargetPage(&tarIndex, &findInArray, newblk);
 	}
-	if (!findInArray)
+	if (!brc.getpage && !findInArray)
 			/* Get a record that we does not care */
 			return;
 
@@ -1631,7 +1631,7 @@ heap_recoverInplaceRecord(XLogReaderState *record, BlockNumber blknum)
 		image = true;
 	
 	targetPage = getTargetPage(&tarIndex, &findInArray, blknum);
-	if (!findInArray)
+	if (!brc.getpage && !findInArray)
 		/* Get a record that we does not care */
 		return;
 	
@@ -1683,7 +1683,7 @@ heap_recoverConfirmRecord(XLogReaderState *record, BlockNumber blknum)
 		image = true;
 	
 	targetPage = getTargetPage(&tarIndex, &findInArray, blknum);
-	if (!findInArray)
+	if (!brc.getpage && !findInArray)
 		/* Get a record that we does not care */
 		return;
 	
@@ -1727,7 +1727,7 @@ heap_recoverLockRecord(XLogReaderState *record, BlockNumber blknum)
 		image = true;
 	
 	targetPage = getTargetPage(&tarIndex, &findInArray, blknum);
-	if (!findInArray)
+	if (!brc.getpage && !findInArray)
 		/* Get a record that we does not care */
 		return;
 	
