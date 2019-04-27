@@ -565,3 +565,29 @@ startInspect(void)
 	freopen("/dev/tty","w",stdout);
 	printf("Page Inspect Success.\n");
 }
+/*
+{
+	int		loop = 0;
+	char	filePath[MAXPGPATH] = {0};
+	bool	getreplace = false;;
+
+	for (; loop < brc.rbNum; loop++)
+	{
+		uint32		blknoIneveryFile = 0;
+		if (brc.pageArray[loop])
+		{
+			memset(filePath, 0, MAXPGPATH);
+			getTarBlockPath(filepath, loop);
+			blknoIneveryFile = MAG_BLOCK_BLKNO(brc.recoverBlock[loop]);
+			if (brc.debugout)
+				br_elog("recover file %s pagenoInfile %u", filePath, blknoIneveryFile);
+			backupOriFile(filePath);
+			replaceFileBlock(filePath, blknoIneveryFile, brc.pageArray[loop]);
+			getreplace = true;
+		}
+	}
+	if(!getreplace)
+		br_elog("Do nothing page replace.");
+}
+*/
+

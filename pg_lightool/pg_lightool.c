@@ -20,19 +20,22 @@
 LightoolCtl		brc;
 
 static struct option long_options[] = {
-		{"help", no_argument, NULL, '?'},
-		{"version", no_argument, NULL, 'V'},
-		{"log", no_argument, NULL, 'l'},
-		{"relnode", required_argument, NULL, 'f'},
-		{"block", required_argument, NULL, 'b'},
-		{"waldir", required_argument, NULL, 'w'},
-		{"immediate", no_argument, NULL, 'i'},
-		{"place", required_argument, NULL, 'p'},
-		{"detail", no_argument, NULL, 'd'},
-		{"grade", required_argument, NULL, 'g'},
-		{"pgdata", required_argument, NULL, 'D'},
-		{"small", required_argument, NULL, 's'},
-		{NULL, 0, NULL, 0}
+	{"help", no_argument, NULL, '?'},
+	{"version", no_argument, NULL, 'V'},
+	{"log", no_argument, NULL, 'l'},
+	{"relnode", required_argument, NULL, 'f'},
+	{"block", required_argument, NULL, 'b'},
+	{"waldir", required_argument, NULL, 'w'},
+	{"immediate", no_argument, NULL, 'i'},
+	{"place", required_argument, NULL, 'p'},
+	{"backuppath", required_argument, NULL, 'r'},
+	{"detail", no_argument, NULL, 'd'},
+	{"grade", required_argument, NULL, 'g'},
+	{"pgdata", required_argument, NULL, 'D'},
+	{"small", required_argument, NULL, 's'},
+	{"endtime", required_argument, NULL, 'e'},
+	{"endxid", required_argument, NULL, 'x'},
+	{NULL, 0, NULL, 0}
 };
 		
 static void do_help(void);
@@ -47,10 +50,10 @@ static void mentalRecord(void);
 static void cleanSpace(void);
 static void replacePages(void);
 static void do_blockrecover(void);
-static void do_walshow(void);
+//static void do_walshow(void);
 static void do_datadis(void);
 static void do_pageinspect(void);
-static void walshowArguCheck(void);
+//static void walshowArguCheck(void);
 static void blockRecoverArguCheck(void);
 static void datadisArguCheck(void);
 static void pageinspectArguCheck(void);
@@ -97,7 +100,6 @@ do_help(void)
 	printf("%s is a light tool of postgres\n\n", brc.lightool);
 	printf("Usage:\n");
 	printf("  %s OPTION blockrecover\n", brc.lightool);
-	printf("  %s OPTION walshow\n", brc.lightool);
 	printf("  %s OPTION datadis\n", brc.lightool);
 	printf("  %s OPTION pageinspect\n", brc.lightool);
 
@@ -111,6 +113,9 @@ do_help(void)
 	printf("  -w, --walpath=walpath                 wallog read from\n");
 	printf("  -D, --pgdata=datapath                 data dir of database\n");
 	printf("  -i, --immediate			            does not do a backup for old file\n");
+	printf("  -r, --backuppath			            support pg_rman $BACKUP_PATH\n");
+//	printf("  -e, --endtime							end time of recovery\n");
+//	printf("  -x, --xid								end xid of recovery\n");
 
 	printf("\nFor datadis:\n");
 	printf("  -f, --relnode=spcid/dbid/relfilenode specify files to dis\n");
@@ -132,8 +137,7 @@ do_help(void)
 static void
 blockRecoverArguCheck(void)
 {
-		
-	if(!brc.relnode || !brc.walpath || !brc.blockstr || !brc.pgdata)
+	if (!brc.relnode || !brc.walpath || !brc.blockstr || !brc.pgdata)
 	{
 		br_error("argument relnode,walpath,block,pgdata is necessary.\n");
 	}
@@ -142,37 +146,28 @@ blockRecoverArguCheck(void)
 	getDataFile(brc.relnode);
 		
 	/*walpath check*/
-	if(!walPathCheck(brc.walpath))
+	if (!walPathCheck(brc.walpath))
 	{
 		br_error("Invalid walpath argument \"%s\"\n", brc.walpath);
 	}
 	/*blockstr check*/
 	getRecoverBlock(brc.blockstr);
-
+	
 	/*pgdata check*/
 	checkPgdata();
-}
 
-static void
-walshowArguCheck(void)
-{
-		
-	if(!brc.walpath)
-	{
-		br_error("argument walpath is necessary.\n");
-	}
-	
-	/*walpath check*/
-	if(!walPathCheck(brc.walpath))
-	{
-		br_error("Invalid walpath argument \"%s\"\n", brc.walpath);
-	}
+	/*备份集timeline检查*/
+	checkBackup();
+
+	/*截止位置处理*/
+	checkEndLoc();
+
 }
 
 static void
 datadisArguCheck(void)
 {
-	if(!brc.relnode || !brc.pgdata)
+	if (!brc.relnode || !brc.pgdata)
 	{
 		br_error("argument relnode,pgdata is necessary.\n");
 	}
@@ -183,14 +178,14 @@ datadisArguCheck(void)
 	/*place check*/
 	checkPlace();
 
-	if(0 == brc.showlevel)
+	if (0 == brc.showlevel)
 		brc.showlevel = 1;
 
-	if(PAGEREAD_SHOWLEVEL_ERROR == brc.showlevel)
+	if (PAGEREAD_SHOWLEVEL_ERROR == brc.showlevel)
 		br_error("unsupposed show level.\n");
-	if(brc.ratiostr)
+	if (brc.ratiostr)
 	{
-		if(!parse_uint32(brc.ratiostr, &brc.ratio))
+		if (!parse_uint32(brc.ratiostr, &brc.ratio))
 			br_error("can not parser ratio argument \"%s\".\n",brc.ratiostr);
 	}
 	else
@@ -210,7 +205,7 @@ printf("\nFor pageinspect:\n");
 static void
 pageinspectArguCheck(void)
 {
-	if(!brc.relnode || !brc.blockstr || !brc.pgdata || !brc.place)
+	if (!brc.relnode || !brc.blockstr || !brc.pgdata || !brc.place)
 	{
 		br_error("argument relnode,walpath,block,pgdata,place is necessary.\n");
 	}
@@ -222,7 +217,7 @@ pageinspectArguCheck(void)
 	checkPlace();
 	/*blockstr check*/
 	getRecoverBlock(brc.blockstr);
-	if(1 != brc.rbNum)
+	if (1 != brc.rbNum)
 	{
 		br_error("inspect single page once a time.\n");
 	}
@@ -239,7 +234,7 @@ arguMentParser(int argc, char *argv[])
 	char		c = 0;
 	bool		commandGet = false;
 
-	if(1 == argc)
+	if (1 == argc)
 	{
 		do_advice_lightool();
 		error_exit();
@@ -261,7 +256,7 @@ arguMentParser(int argc, char *argv[])
 	optind = 1;
 	while (optind < argc)
 	{
-		while (-1 != (c = getopt_long(argc, argv, "?Vlf:b:w:D:ip:dg:s:",long_options, &option_index)))
+		while (-1 != (c = getopt_long(argc, argv, "?Vlf:b:w:D:ip:dg:s:r:e:x:",long_options, &option_index)))
 		{
 			switch (c)
 			{
@@ -293,14 +288,23 @@ arguMentParser(int argc, char *argv[])
 					brc.ratiostr = (char*)strdup(optarg);
 					break;
 				case 'g':
-					if(0 == strcmp("1",optarg))
+					if (0 == strcmp("1",optarg))
 						brc.showlevel = PAGEREAD_SHOWLEVEL_FILE;
-					else if(0 == strcmp("2",optarg))
+					else if (0 == strcmp("2",optarg))
 						brc.showlevel = PAGEREAD_SHOWLEVEL_PAGE;
-					else if(0 == strcmp("3",optarg))
+					else if (0 == strcmp("3",optarg))
 						brc.showlevel = PAGEREAD_SHOWLEVEL_ALL;
 					else
 						brc.showlevel = PAGEREAD_SHOWLEVEL_ERROR;
+					break;
+				case 'r':
+					brc.backuppath = (char*)strdup(optarg);
+					break;
+				case 'e':
+					brc.endtimestr = (char*)strdup(optarg);
+					break;
+				case 'x':
+					brc.endxidstr = (char*)strdup(optarg);
 					break;
 				default:
 					do_advice_lightool();
@@ -309,24 +313,20 @@ arguMentParser(int argc, char *argv[])
 		}
 		if (optind < argc)
 		{
-			if(commandGet)
+			if (commandGet)
 			{
 				do_advice_lightool();
 				error_exit();
 			}
-			if(0 == strcmp("blockrecover",argv[optind]))
+			if (0 == strcmp("blockrecover",argv[optind]))
 			{
 				brc.curkind = CUR_KIND_BLOCKRECOVER;
 			}
-			else if(0 == strcmp("walshow",argv[optind]))
-			{
-				brc.curkind = CUR_KIND_WALSHOW;
-			}
-			else if(0 == strcmp("datadis",argv[optind]))
+			else if (0 == strcmp("datadis",argv[optind]))
 			{
 				brc.curkind = CUR_KIND_RELDATADIS;
 			}
-			else if(0 == strcmp("pageinspect", argv[optind]))
+			else if (0 == strcmp("pageinspect", argv[optind]))
 			{
 				brc.curkind = CUR_KIND_PAGEINSPECT;
 			}
@@ -339,7 +339,7 @@ arguMentParser(int argc, char *argv[])
 			optind++;
 		}
 	}
-	if(CUR_KIND_INVALID == brc.curkind)
+	if (CUR_KIND_INVALID == brc.curkind)
 	{
 		do_advice_lightool();
 		error_exit();
@@ -349,19 +349,19 @@ arguMentParser(int argc, char *argv[])
 void
 pro_on_exit()
 {
-	if(brc.lightool)
+	if (brc.lightool)
 		pfree(brc.lightool);
-	if(brc.relnode)
+	if (brc.relnode)
 		pfree(brc.relnode);
-	if(brc.walpath)
+	if (brc.walpath)
 		pfree(brc.walpath);
-	if(brc.blockstr)
+	if (brc.blockstr)
 		pfree(brc.blockstr);
-	if(brc.pgdata)
+	if (brc.pgdata)
 		pfree(brc.pgdata);
-	if(brc.place)
+	if (brc.place)
 		pfree(brc.place);
-	if(brc.ratiostr)
+	if (brc.ratiostr)
 		pfree(brc.ratiostr);
 	cleanSpace();
 }
@@ -370,9 +370,9 @@ static void
 getProname(char *argu)
 {
 	char	*slash = NULL;
-	if(NULL != (slash = strrchr(argu,'/')))
+	if (NULL != (slash = strrchr(argu,'/')))
 	{
-		if(argu + strlen(argu) == slash - 1)
+		if (argu + strlen(argu) == slash - 1)
 		{
 			printf("Fail to get proname.\n");
 			error_exit();
@@ -406,7 +406,7 @@ mentalRecord(void)
 	XLogRecord *record = NULL;
 	char	   *errormsg = NULL;
 	
-	while(true)
+	while (true)
 	{
 		record = XLogParserReadRecord(brc.xlogreader, brc.parserPri.first_record , &errormsg);
 		if (!record)
@@ -414,10 +414,13 @@ mentalRecord(void)
 			break;
 		}
 		brc.parserPri.first_record = InvalidXLogRecPtr;
-		if(CUR_KIND_BLOCKRECOVER == brc.curkind)
+		if (CUR_KIND_BLOCKRECOVER == brc.curkind)
 			recoverRecord(brc.xlogreader);
-		else if(CUR_KIND_WALSHOW == brc.curkind)
-			showRecord(brc.xlogreader);
+		if(brc.reachend)
+		{
+			br_elog("Reach end that you pointed");
+			break;
+		}
 	}
 }
 
@@ -426,42 +429,41 @@ replacePages(void)
 {
 	int		loop = 0;
 	char	filePath[MAXPGPATH] = {0};
+	bool	getreplace = false;;
 
-	for(; loop < brc.rbNum; loop++)
+	for (; loop < brc.rbNum; loop++)
 	{
 		uint32		blknoIneveryFile = 0;
-		uint32		relFileNum = 0;
-		if(brc.pageArray[loop])
+		//uint32		relFileNum = 0;
+		if (brc.pageArray[loop])
 		{
 			memset(filePath, 0, MAXPGPATH);
-			relFileNum = MAG_BLOCK_FILENO(brc.recoverBlock[loop]);
+			getTarBlockPath(filePath, brc.relpath, loop);
 			blknoIneveryFile = MAG_BLOCK_BLKNO(brc.recoverBlock[loop]);
-			if(0 != relFileNum)
-				sprintf(filePath, "%s/%u.%u",brc.relpath,brc.rfn.relNode, relFileNum);
-			else
-				sprintf(filePath, "%s/%u",brc.relpath, brc.rfn.relNode);
-			if(brc.debugout)
+			if (brc.debugout)
 				br_elog("recover file %s pagenoInfile %u", filePath, blknoIneveryFile);
 			backupOriFile(filePath);
-			replaceFileBlock(filePath, blknoIneveryFile, brc.pageArray[loop]);	
+			replaceFileBlock(filePath, blknoIneveryFile, brc.pageArray[loop]);
+			getreplace = true;
 		}
-		
 	}
+	if(!getreplace)
+		br_elog("Do nothing page replace.");
 }
 
 static void
 cleanSpace(void)
 {
 	int	loop = 0;
-	for(; loop < RECOVER_BLOCK_MAX; loop++)
+	for (; loop < RECOVER_BLOCK_MAX; loop++)
 	{
-		if(brc.pageArray[loop])
+		if (brc.pageArray[loop])
 		{
 			pfree(brc.pageArray[loop]);
 			brc.pageArray[loop] = NULL;
 		}
 	}
-	if(brc.xlogreader)
+	if (brc.xlogreader)
 		xLogReaderFree(brc.xlogreader);
 }
 
@@ -471,48 +473,39 @@ do_blockrecover(void)
 	int		loop = 0;
 
 	blockRecoverArguCheck();
-	if(brc.debugout)
+	getRelpath();
+	if(brc.ifwholerel)
 	{
-		br_elog("LOG:datafile is %u/%u/%u", brc.rfn.dbNode, brc.rfn.relNode, brc.rfn.spcNode);
-		br_elog("LOG:walpath is %s", brc.walpath);
-		br_elog("Recover blocks is");
-		for(; loop < brc.rbNum; loop++)
-			printf("%u ", brc.recoverBlock[loop]);
-		printf("\n");
+		copyBackupRel();
 	}
-
-	getFirstXlogFile(brc.walpath);
-	startXlogRead();
-	if(brc.debugout)
-		printf("LOG:first_record 0x%x\n", (uint32)brc.parserPri.first_record);
-	mentalRecord();
-	if(brc.debugout)
+	else
+		fillPageArray();
+	if (brc.debugout)
 	{
-		for(loop = 0; loop < brc.rbNum; loop++)
+		br_elog("LOG:datafile is %u/%u/%u", brc.rfn.spcNode, brc.rfn.dbNode, brc.rfn.relNode);
+		br_elog("LOG:walpath is %s", brc.walpath);
+		if(brc.ifwholerel)
 		{
-			if(brc.pageArray[loop])
-				printf("%d ", brc.recoverBlock[loop]);
+			br_elog("LOG:redo start LSN is %x/%x", (uint32)(brc.startlsn >> 32), (uint32)brc.startlsn);
+		}
+		else
+		{
+			br_elog("Recover blocks is:");
+			for (; loop < brc.rbNum; loop++)
+				printf("%u ", brc.recoverBlock[loop]);
 		}
 		printf("\n");
 	}
-	getRelpath();
-	replacePages();
 
-}
-
-static void
-do_walshow(void)
-{
-	walshowArguCheck();
-	if(brc.debugout)
-	{
-		br_elog("walpath is %s", brc.walpath);
-	}
 	getFirstXlogFile(brc.walpath);
 	startXlogRead();
-	if(brc.debugout)
-		printf("first_record: 0x%x\n", (uint32)brc.parserPri.first_record);
+	if (brc.debugout)
+		printf("LOG:first_record 0x%x\n", (uint32)brc.parserPri.first_record);
 	mentalRecord();
+	if(!brc.ifwholerel)
+		replacePages();
+	else
+		moveRestoreFile();
 }
 
 static void
@@ -534,34 +527,23 @@ do_pageinspect(void)
 int
 main(int argc, char *argv[])
 {
-	bool	canshowwal = false;
 	atexit(pro_on_exit);
 	initializeLightool();
 	getProname(argv[0]);
 	arguMentParser(argc, argv);
-	if(CUR_KIND_BLOCKRECOVER == brc.curkind)
+	if (CUR_KIND_BLOCKRECOVER == brc.curkind)
 	{
 		do_blockrecover();
 	}
-	else if(CUR_KIND_WALSHOW == brc.curkind)
-	{
-		if(canshowwal)
-			do_walshow();
-		else
-		{
-			br_elog("wal show:Being developed");
-			nomal_exit();
-		}
-	}
-	else if(CUR_KIND_RELDATADIS == brc.curkind)
+	else if (CUR_KIND_RELDATADIS == brc.curkind)
 	{
 		do_datadis();
 	}
-	else if(CUR_KIND_PAGEINSPECT == brc.curkind)
+	else if (CUR_KIND_PAGEINSPECT == brc.curkind)
 	{
 		do_pageinspect();
 	}
 	
-	return 1;
+	return 0;
 }
 
