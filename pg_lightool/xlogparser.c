@@ -1452,7 +1452,7 @@ heap_recoverUpdateRecord(XLogReaderState *record, BlockNumber blknum, bool hot_u
 	{
 		recoverImageFromRecord(record,oldblk,tarIndex,(newblk == oldblk)?0:1);
 	}
-	else if (findInArray)
+	else if (findInArray || brc.getpage)
 	{
 		if (!targetPageOld)
 		{
