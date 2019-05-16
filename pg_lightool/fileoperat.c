@@ -408,7 +408,7 @@ copyfile(char *orifile, char *tarfile)
 		br_error("can not open file %s to write:%m", tarfile);
 
 	filesize = getfileSize(orifile);
-	Assert(filesize % BLCKSZ);
+	Assert(0 == filesize % BLCKSZ);
 	while(true)
 	{
 		memset(page, 0, BLCKSZ);

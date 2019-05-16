@@ -92,17 +92,11 @@ getRelpath(void)
 	{
 		sprintf(basePath, "%s/database/global", brc.pgdata);
 	}
-	else if (FirstNormalObjectId < brc.rfn.spcNode)
+	else if (FirstNormalObjectId <= brc.rfn.spcNode)
 	{
-		char	tempPath[MAXPGPATH] = {0};
-		ssize_t	len = 0;
-		sprintf(tempPath, "%s/pg_tblspc/%u", brc.pgdata, brc.rfn.spcNode);
-		len = readlink(tempPath, basePath, sizeof(basePath));
-		if (len == -1)
-		{
-			br_error("could not read link \"%s\": %s", tempPath, strerror(errno));
-		}
-		sprintf(basePath + len,"/%s/%u", TABLESPACE_VERSION_DIRECTORY, brc.rfn.dbNode);
+
+		sprintf(basePath, "%s/pg_tblspc/%u/%s/%u", brc.pgdata, brc.rfn.spcNode,TABLESPACE_VERSION_DIRECTORY,
+						brc.rfn.dbNode);
 	}
 	else
 	{
@@ -128,7 +122,7 @@ getRecoverBlock(char *block)
 
 	if(0 == strcmp("-1", block))
 	{
-		/*全表恢复*/
+		/*全锟斤拷锟街革拷*/
 		brc.ifwholerel = true;
 		return;
 	}
@@ -190,7 +184,7 @@ error_condition:
 	}
 }
 
-/*函数使用时注意filepath需要是有PGMAXPATH size的空间*/
+
 void
 getTarBlockPath(char *filepath, char *relpath,int index)
 {
