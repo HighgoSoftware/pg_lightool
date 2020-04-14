@@ -1,7 +1,16 @@
 /*-------------------------------------------------------------------------
  *
+ * Identification:
  * pageread.c
  *
+ * Copyright:
+ * Copyright (c) 2017-2020, HighGo Software Co.,Ltd. All right reserved
+ * 
+ * Authored by lichuancheng@highgo.com ,20180821
+ * 
+ * Abstract:
+ * Code about read data page from disk.
+ * 
  *-------------------------------------------------------------------------
  */
 #include "pg_lightool.h"

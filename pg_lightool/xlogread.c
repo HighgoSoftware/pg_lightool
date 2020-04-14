@@ -1,7 +1,16 @@
 /*-------------------------------------------------------------------------
  *
- * xlogparser.c: Parse WAL files.
+ * Identification:
+ * xlogparser.c
  *
+ * Copyright:
+ * Copyright (c) 2017-2020, HighGo Software Co.,Ltd. All right reserved
+ * 
+ * Authored by lichuancheng@highgo.com ,20180821
+ * 
+ * Abstractt:
+ * Code to read wal file form disk.
+ * 
  *-------------------------------------------------------------------------
  */
 #include "pg_lightool.h"

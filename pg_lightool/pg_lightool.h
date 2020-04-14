@@ -1,7 +1,13 @@
 /*-------------------------------------------------------------------------
  *
- * pg_blockrecover.c - recover bad blocks
- *		  pg_blockrecover.h
+ * Identification:
+ * pg_blockrecover.h
+ *
+ * Copyright:
+ * Copyright (c) 2017-2020, HighGo Software Co.,Ltd. All right reserved
+ * 
+ * Authored by lichuancheng@highgo.com ,20180821
+ * 
  *-------------------------------------------------------------------------
  */
 #ifndef	PH_BLOCKRECOVER_H
@@ -92,7 +98,7 @@ typedef struct LightoolCtl
 	XLogRecPtr			startlsn;
 	bool				reachend;
 
-	/*±í»Ö¸´Ïà¹ØÊôÐÔ*/
+	/*ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½*/
 	bool				ifwholerel;
 	char				reltemppath[MAXPGPATH];
 	char				page[BLCKSZ];

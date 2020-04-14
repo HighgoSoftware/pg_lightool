@@ -1,7 +1,16 @@
 /*-------------------------------------------------------------------------
  *
+ * Identification:
  * util.c
+ * 
+ * Copyright:
+ * Copyright (c) 2017-2020, HighGo Software Co.,Ltd. All right reserved
+ * 
+ * Authored by lichuancheng@highgo.com ,20180821
  *
+ * Abstract:
+ * Some util tool function of the pg_lightool.
+ * 
  *-------------------------------------------------------------------------
  */
  #include "pg_lightool.h"

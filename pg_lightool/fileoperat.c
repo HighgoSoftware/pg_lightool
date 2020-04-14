@@ -1,6 +1,15 @@
 /*-------------------------------------------------------------------------
  *
+ * Identification: 
  * fileoperat.c
+ * 
+ * Copyright:
+ * Copyright (c) 2017-2020, HighGo Software Co.,Ltd. All right reserved
+ * 
+ * Authored by lichuancheng@highgo.com ,20180821
+ * 
+ * Abstract:
+ * Code related to file operate.
  *
  *-------------------------------------------------------------------------
  */
@@ -307,7 +316,7 @@ replaceFileBlock(char* filePath, uint32 blknoIneveryFile, Page page)
 }
 
 /*
-* µÝ¹éÉ¾³ýÄ¿Â¼
+* ï¿½Ý¹ï¿½É¾ï¿½ï¿½Ä¿Â¼
 */
 static void
 delete_dir(char *path, bool oridelete)
@@ -458,8 +467,8 @@ copyfiles(char *oridir, char *tardir, Oid relnode)
 }
 
 /*
-* ´´½¨ÁÙÊ±Ä¿Â¼
-* ´Ó±¸·Ý¼¯¿½±´Ä¿±ê±íµÄ±¸·Ýµ½ÁÙÊ±Ä¿Â¼
+* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±Ä¿Â¼
+* ï¿½Ó±ï¿½ï¿½Ý¼ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½Ýµï¿½ï¿½ï¿½Ê±Ä¿Â¼
 */
 void
 copyBackupRel(void)
@@ -472,7 +481,7 @@ copyBackupRel(void)
 	sprintf(tempdir, "%s%u", WHOLE_RELATION_RECOVER_TEMPDIR, brc.rfn.relNode);
 	sprintf(brc.reltemppath, "%s/%s", brc.relpath, tempdir);
 
-	/*±£Ö¤±¸·ÝÎÄ¼þµÄ¿½±´Ä¿±êÂ·¾¶´æÔÚÇÒÎª¿Õ¡£*/
+	/*ï¿½ï¿½Ö¤ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½Õ¡ï¿½*/
 	if(dirExist(brc.reltemppath))
 	{
 		if(brc.debugout)

@@ -1,7 +1,16 @@
 /*-------------------------------------------------------------------------
  *
- * pg_blockrecover.c - recover bad blocks
- *		  pg_blockrecover.c
+ * Identification:
+ * pg_blockrecover.c
+ *
+ * Copyright:
+ * Copyright (c) 2017-2020, HighGo Software Co.,Ltd. All right reserved
+ * 
+ * Authored by lichuancheng@highgo.com ,20180821
+ * 
+ * Abstract:
+ * Main function of the feature.
+ * 
  *-------------------------------------------------------------------------
  */
 #include <stdio.h>
@@ -156,10 +165,10 @@ blockRecoverArguCheck(void)
 	/*pgdata check*/
 	checkPgdata();
 
-	/*±¸·Ý¼¯timeline¼ì²é*/
+	/*ï¿½ï¿½ï¿½Ý¼ï¿½timelineï¿½ï¿½ï¿½*/
 	checkBackup();
 
-	/*½ØÖ¹Î»ÖÃ´¦Àí*/
+	/*ï¿½ï¿½Ö¹Î»ï¿½Ã´ï¿½ï¿½ï¿½*/
 	checkEndLoc();
 
 }

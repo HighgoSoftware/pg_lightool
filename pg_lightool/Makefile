@@ -1,8 +1,13 @@
 #-------------------------------------------------------------------------
 #
-# Makefile for src/bin/pg_lightool
+# Identification: 
+# Makefile
 #
-# src/bin/pg_lightool/Makefile
+# Copyright:
+# Copyright (c) 2017-2020, HighGo Software Co.,Ltd. All right reserved
+#
+# Authored by lichuancheng@highgo.com ,20180821
+#
 #
 #-------------------------------------------------------------------------
 

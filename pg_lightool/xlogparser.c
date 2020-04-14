@@ -1,7 +1,15 @@
 /*-------------------------------------------------------------------------
+ * Identification:
+ * xlogparser.c
+ * 
+ * Copyright:
+ * Copyright (c) 2017-2020, HighGo Software Co.,Ltd. All right reserved
+ * 
+ * Authored by lichuancheng@highgo.com ,20180821
  *
- * xlogparser.c: Parse WAL files.
- *
+ * Abstract:
+ * Code to parser wal in this tool.
+ * 
  *-------------------------------------------------------------------------
  */
 #include "pg_lightool.h"
@@ -529,12 +537,12 @@ recoverRecord(XLogReaderState *record)
 	xLogRecGetBlockTag(record, 0, &rfnode, NULL, &blknum);
 	if (0 == rfnode.spcNode)
 		rfnode.spcNode = PG_DEFAULT_TBS_OID;
-	//ÌÞ³ýËùÓÐµÄ·ÇÄ¿±ê±íµÄwal¼ÇÂ¼(²»°üÀ¨ÊÂÎñrecord)
+	//ï¿½Þ³ï¿½ï¿½ï¿½ï¿½ÐµÄ·ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½walï¿½ï¿½Â¼(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½record)
 	if (brc.rfn.relNode != rfnode.relNode && RM_XACT_ID != rmid)
 		return;
 	if(brc.ifwholerel && RM_XACT_ID != rmid)
 	{
-		//°ÑrecordÖÐµÄimage¸²¸Çµ½¿½±´³öµÄÄ¿±ê±íÊý¾Ý
+		//ï¿½ï¿½recordï¿½Ðµï¿½imageï¿½ï¿½ï¿½Çµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		recordStoreImage(record, blknum);
 	}
 	if(brc.debugout  && RM_XACT_ID != rmid)
@@ -1271,7 +1279,7 @@ heap_recoverInsertRecord(XLogReaderState *record, BlockNumber blknum)
 	if (XLogRecBlockImageApply(record, 0))
 		image = true;
 
-	//µ¥±í½âÎöÇÒÓÐÈ«Ò³Ð´£¬ÄÇÃ´ºöÂÔ´Ërecord
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È«Ò³Ð´ï¿½ï¿½ï¿½ï¿½Ã´ï¿½ï¿½ï¿½Ô´ï¿½record
 	if(brc.ifwholerel && image)
 	{
 		if(brc.debugout)
@@ -1918,8 +1926,8 @@ readBackupPage(Page *page, char *filepath, uint32 block)
 			return;
 		br_error("can not open file %s to read:%m", filepath);
 	}
-	fseek(fp, 0L, SEEK_END); /* ¶¨Î»µ½ÎÄ¼þÄ©Î² */
-	filesize = ftell(fp); /* µÃµ½ÎÄ¼þ´óÐ¡ */
+	fseek(fp, 0L, SEEK_END); /* ï¿½ï¿½Î»ï¿½ï¿½ï¿½Ä¼ï¿½Ä©Î² */
+	filesize = ftell(fp); /* ï¿½Ãµï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ð¡ */
 
 	fseek(fp, 0, SEEK_SET);
 	if(0 != block)

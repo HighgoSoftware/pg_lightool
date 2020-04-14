@@ -1,7 +1,16 @@
 /*-------------------------------------------------------------------------
  *
+ * Identification: 
  * backup_utils.c
+ * 
+ * Copyright:
+ * Copyright (c) 2017-2020, HighGo Software Co.,Ltd. All right reserved
+ * 
+ * Authored by lichuancheng@highgo.com ,20180821
+ * 
+ * Abstract:
  * 此代码用于读取备份集数据
+ * 
  *-------------------------------------------------------------------------
  */
  #include "backup_utils.h"
